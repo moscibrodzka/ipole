@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
 
     /* fix camera location */
     rcam = 240.;
-    phicam = 0.0;	
+    phicam = -1.5708;		//corresponds to +1.57 in grtrans	
     Xcam[0] = 0.0;
     Xcam[1] = log(rcam);
     Xcam[2] = root_find(thetacam / 180. * M_PI);
