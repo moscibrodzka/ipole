@@ -3,6 +3,7 @@
 #include <omp.h>
 
 #define MAXNSTEP 	50000
+#define POLARIZATION_ON (1)
 
 struct of_traj {
     double dl;
@@ -74,7 +75,7 @@ int main(int argc, char *argv[])
 
     /* fix camera location */
     rcam = 240.;
-    phicam = -1.5708;		//corresponds to +1.57 in grtrans	
+    phicam = 0.0;	
     Xcam[0] = 0.0;
     Xcam[1] = log(rcam);
     Xcam[2] = root_find(thetacam / 180. * M_PI);
@@ -181,8 +182,10 @@ shared(Xcam,fovx,fovy,freq,freqcgs,image,imageS,L_unit,stderr,stdout,\
 		get_jkinv(Xf, Kconf, &jf, &kf);
 		Intensity = approximate_solve(Intensity, ji, ki, jf, kf, traj[nstep].dl);
 
+#if(POLARIZATION_ON)
 		/* solve polarized transport */
 		evolve_N(Xi, Kconi, Xhalf, Kconhalf, Xf, Kconf, traj[nstep].dl, N_coord);
+#endif
 
                 /* swap start and finish */
 		ji = jf;
@@ -241,7 +244,7 @@ shared(Xcam,fovx,fovy,freq,freqcgs,image,imageS,L_unit,stderr,stdout,\
 
     /* done! */
 
-
+    return 0;
 }
 
 void dump(double image[NX][NY], double imageS[NX][NY][NDIM], char *fname,
