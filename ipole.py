@@ -71,6 +71,8 @@ Qb = sum(Qs)
 Ub = sum(Us)
 LP = np.sqrt(Qb*Qb + Ub*Ub)/sum(Is)
 print "LP [%]: ", LP*100.
+CHI = (180./3.14159)*0.5*np.arctan2(Ub,Qb)
+print "EVPA [deg]:",CHI
 CP = sum(Vs)/sum(Is)
 print "CP [%]: ", CP*100.
 amp = np.sqrt(Qs*Qs + Us*Us)
