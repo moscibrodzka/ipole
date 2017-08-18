@@ -143,8 +143,6 @@ void evolve_N(double Xi[NDIM], double Kconi[NDIM],
 	complex_coord_to_tetrad_rank2(N_coord, Ecov, N_tetrad);
 	tensor_to_stokes(N_tetrad, &SI0, &SQ0, &SU0, &SV0);
 
-	double x = dlam ;
-
 	int k,l;
 	double M1[NDIM][NDIM];
 	double M2[NDIM][NDIM];
@@ -158,10 +156,9 @@ void evolve_N(double Xi[NDIM], double Kconi[NDIM],
 	double alphadrho = aQ*rQ + aU*rU + aV*rV;
 	double sig=copysign(1.,alphadrho);
 	double T=2.*sqrt(pow(alpha2 - rho2,2)/4.+ alphadrho*alphadrho ) ;
-	double ith=1./(T+SMALL); //so that if a=r=0  M234->0, not NaN                                                                                                                                         
-	double L1=sqrt(T*0.5+(alpha2-rho2)*0.5)+SMALL; //so that if a=0 alone fac1 != 1/0                                                                                                                     
+	double ith=1./(T+SMALL); //so that if a=r=0  M234->0, not NaN
+	double L1=sqrt(T*0.5+(alpha2-rho2)*0.5)+SMALL; //so that if a=0 alone fac1 != 1/0
 	double L2=sqrt(T*0.5-(alpha2-rho2)*0.5)+SMALL; //so that if a=r=0 fac2 != 0   
-
 
 	for(k=0;k<NDIM;k++)for(l=0;l<NDIM;l++) M1[k][l]=0.0;
 	M1[0][0]=1.0;
@@ -232,30 +229,30 @@ void evolve_N(double Xi[NDIM], double Kconi[NDIM],
 
 	double fac1=1./(aI*aI - L1*L1);
 	double fac2=1./(aI*aI + L2*L2);
-	double l1x=L1*x;
-	double l2x=L2*x;
-	double EaIx=exp(-aI*x);
-	double coshl1x=cosh(l1x);
-	double sinhl1x=sinh(l1x);
-	double cosl2x=cos(l2x);
-	double sinl2x=sin(l2x);
+	double l1dlam=L1*dlam;
+	double l2dlam=L2*dlam;
+	double EaIdlam=exp(-aI*dlam);
+	double coshl1dlam=cosh(l1dlam);
+	double sinhl1dlam=sinh(l1dlam);
+	double cosl2dlam=cos(l2dlam);
+	double sinl2dlam=sin(l2dlam);
 
 	for(k=0;k<4;k++)for(l=0;l<4;l++){
 
-	    O[k][l] = EaIx*( 0.5*(coshl1x+cosl2x)*M1[k][l]
-                                   - sinl2x*M2[k][l]
-                                   - sinhl1x*M3[k][l]
-			     + 0.5*(coshl1x-cosl2x)*M4[k][l]
-			     );
+	    O[k][l] = EaIdlam*( 0.5*(coshl1dlam+cosl2dlam)*M1[k][l]
+				- sinl2dlam*M2[k][l]
+				- sinhl1dlam*M3[k][l]
+				+ 0.5*(coshl1dlam-cosl2dlam)*M4[k][l]
+				);
 
-	       P[k][l] = (-L1*fac1*M3[k][l] + 0.5*aI*fac1*(M1[k][l] + M4[k][l])) +
-	                 (-L2*fac2*M2[k][l] + 0.5*aI*fac2*(M1[k][l] - M4[k][l])) -
-	      EaIx*(
-		    ( -L1*fac1*M3[k][l] + 0.5*aI*fac1*(M1[k][l] + M4[k][l]) )*coshl1x +
-		    ( -L2*fac2*M2[k][l] + 0.5*aI*fac2*(M1[k][l] - M4[k][l]) )*cosl2x  +
-		    ( -aI*fac2*M2[k][l] - 0.5*L2*fac2*(M1[k][l] - M4[k][l]) )*sinl2x  -
-		    (  aI*fac1*M3[k][l] - 0.5*L1*fac1*(M1[k][l] + M4[k][l]) )*sinhl1x
-		    );
+	    P[k][l] = (-L1*fac1*M3[k][l] + 0.5*aI*fac1*(M1[k][l] + M4[k][l])) +
+	              (-L2*fac2*M2[k][l] + 0.5*aI*fac2*(M1[k][l] - M4[k][l])) -
+	      EaIdlam*(
+		       ( -L1*fac1*M3[k][l] + 0.5*aI*fac1*(M1[k][l] + M4[k][l]) )*coshl1dlam +
+		       ( -L2*fac2*M2[k][l] + 0.5*aI*fac2*(M1[k][l] - M4[k][l]) )*cosl2dlam  +
+		       ( -aI*fac2*M2[k][l] - 0.5*L2*fac2*(M1[k][l] - M4[k][l]) )*sinl2dlam  -
+		       (  aI*fac1*M3[k][l] - 0.5*L1*fac1*(M1[k][l] + M4[k][l]) )*sinhl1dlam
+		      );
 
 	  }
 
@@ -433,7 +430,7 @@ void stokes_to_tensor(double fI, double fQ, double fU, double fV,
     for (i = 0; i < 4; i++)
 	for (j = 0; j < 4; j++)
 	    f_tetrad[i][j] = 0. + I * 0.;
-    /*notice that I swapped sign of the imaginary part [2][3] in [3][2] - which one is correct? */
+
     f_tetrad[1][1] = (fI + fQ + 0. * I);
     f_tetrad[1][2] = (fU - I * fV);
     f_tetrad[2][1] = (fU + I * fV);
