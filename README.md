@@ -1,10 +1,8 @@
-# ipole
-polarized covariant radiative transport code
 
-/***********************************************************************************
+
     Copyright 2017 Monika Moscibrodzka and Charles F. Gammie
 
-    ipole  version 1.0   (released September 1, 2017)
+    ipole  version 1.0  (released September 15, 2017)
 
     The files in this directory are part of ipole.  
     
@@ -16,17 +14,20 @@ polarized covariant radiative transport code
     Kerr-Schild coordinates, and assumes synchrotron emission and absorption
     along with faraday rotation.
 
-    You are morally obligated to cite the following papers in  
+    You are morally obligated to cite the following papera in any
     scientific literature that results from use of any part of ipole:
 
-    [1] Moscibrodzka, M., and Gammie, C. F., Monthly Notices of the Royal
+    [1] Moscibrodzka, Monika, and Gammie, Charles F., Monthly Notices of the Royal
         Astronomical Society, submitted.
+        
+    [2] Noble, Scott C.; Leung, Po Kin; Gammie, Charles F.; Book, Laura G. 
+        Classical and Quantum Gravity, Volume 24, Issue 12, pp. S259-S274 (2007)
+        http://adsabs.harvard.edu/abs/2007CQGra..24S.259N
 
     Further, we strongly encourage you to obtain the latest version of 
-    ipole directly from github.
+    ipole directly from github,
+    https://github.com/AFD-Illinois/ipole
 
     ipole is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
-
-***********************************************************************************/
