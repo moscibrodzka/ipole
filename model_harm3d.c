@@ -432,7 +432,7 @@ void set_units(char *munitstr)
 	U_unit = RHO_unit * CL * CL;
 	B_unit = CL * sqrt(4.*M_PI*RHO_unit);
 
-	fprintf(stderr,"L,T,M units: %g [cm] %g [g] %g [sec]\n",L_unit,T_unit,M_unit) ;
+	fprintf(stderr,"L,T,M units: %g [cm] %g [sec] %g [g]\n",L_unit,T_unit,M_unit) ;
 	fprintf(stderr,"rho,u,B units: %g [g cm^-3] %g [g cm^-1 sec^-2] %g [G] \n",RHO_unit,U_unit,B_unit) ;
 }
 
