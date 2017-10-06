@@ -1,16 +1,12 @@
-
 /**********************************************************/
-
 /*** all you need to make a polarized radiative transfer***/
-/***** used in ipole to evolve complex tensor N *******/
+/******** used in ipole to evolve complex tensor N ********/
 /***** along with standard evolution for I scalar *********/
 /**********************************************************/
 /**** written by Monika Moscibrodzka on 09 July 2014 ******/
 /************ @ Eindhoven Airport *************************/
 /************  last update: 9 May 2017   ******************/
-
-/****************and then rewritten by C.Gammie ***********/
-
+/************* co-author: C.F. Gammie *********************/
 /**********************************************************/
 
 #include "decs.h"
