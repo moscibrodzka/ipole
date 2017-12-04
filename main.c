@@ -232,7 +232,7 @@ shared(Xcam,fovx,fovy,freq,freqcgs,image,imageS,L_unit,stderr,stdout,\
 	    Iavg / (NX * NY));
     fprintf(stderr, "Ftot: %g %g scale=%g\n", freqcgs, Ftot, scale);
     fprintf(stderr, "nuLnu = %g\n",
-	    Ftot * Dsource * Dsource * JY * freqcgs);
+	    Ftot * Dsource * Dsource * JY * freqcgs * 4. * M_PI);
 
     /* image, dump result */
     make_ppm(image, freq, "ipole_fnu.ppm");
