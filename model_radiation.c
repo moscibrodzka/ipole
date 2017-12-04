@@ -213,7 +213,7 @@ double besselk_asym(int n, double x)
 int radiating_region(double X[4])
 {
   
-  if(X[1] < log(50.) && X[2]>startx[2] && X[2]<stopx[2] ) return(1); 
+  if(X[1] < log(40.) && X[2]>startx[2] && X[2]<stopx[2] ) return(1); 
   else return(0);
 
 }
