@@ -2,7 +2,7 @@
 
     Copyright 2017 Monika Moscibrodzka and Charles F. Gammie
 
-    ipole  version 1.0  (released September 15, 2017)
+    ipole  version 1.0  (released December 4, 2017)
 
     The files in this directory are part of ipole.  
     
@@ -26,7 +26,7 @@
 
     Further, we strongly encourage you to obtain the latest version of 
     ipole directly from github,
-    https://github.com/AFD-Illinois/ipole
+    https://github.com/moscibrodzka/ipole
 
     ipole is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
