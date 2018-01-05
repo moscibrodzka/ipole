@@ -465,6 +465,13 @@ void init_physical_quantities(void)
 			  
 			  //strongly magnetized = empty, no shiny spine
 			  if(sigma_m > 2.0) ne[i][j][k]=0.0;
+
+			  //also empty zones with anomalously high temperature
+                          if(thetae[i][j][k] > 100.0) ne[i][j][k]=0.0;
+
+                          //also empty last two zones near axis
+                          if(j < 2 || N2-1-j < 2) ne[i][j][k]=0.0;
+
 			}
 		}
 	}
