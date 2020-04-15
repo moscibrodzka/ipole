@@ -96,9 +96,11 @@ void jar_calc(double X[NDIM], double Kcon[NDIM],
 					/* Faraday rotativities for thermal plasma */
 	Xe = Thetae * sqrt(S2 * sin(theta) * (1.e3 * omega0 / 2. / M_PI / nu));
 
+	//this is used normally
 	//*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
 	// (gsl_sf_bessel_Kn(0,1./Thetae) -Je(Xe)) / gsl_sf_bessel_Kn(2,1./Thetae) * cos(theta);
 
+	//this is used for EHT
 	if (Thetae > 3.0) {
 	    // High temperature: use approximations to bessel
 	    *rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
@@ -151,7 +153,7 @@ void jar_calc(double X[NDIM], double Kcon[NDIM],
       //*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
       //       (gsl_sf_bessel_Kn(0,1./Thetae) - Je(Xe)) / gsl_sf_bessel_Kn(2,1./Thetae) * cos(theta);
 
-      
+      //this is used for EHT library
       if (Thetae > 3.0) {
 	// High temperature: use approximations to bessel
 	*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
@@ -304,11 +306,11 @@ void jar_calc_mixed_pl(double X[NDIM], double Kcon[NDIM],
 	//	*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
 	//  (besselk_asym(0, Thetaer) - Je(Xe)) / besselk_asym(2, Thetaer) * cos(theta);
 
-	//mystuff
+	// used normally
 	//*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
 	//  (gsl_sf_bessel_Kn(0,1./Thetae) -Je(Xe)) / gsl_sf_bessel_Kn(2,1./Thetae) * cos(theta);
 
-	//fancy george fits
+	//used for EHT library
 	// Switch between three different fits for rho_V
 	if (Thetae > 3.0) {
 	    // High temperature: use approximations to bessel
@@ -352,12 +354,12 @@ void jar_calc_mixed_pl(double X[NDIM], double Kcon[NDIM],
       //*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
       //(besselk_asym(0, Thetaer) - Je(Xe)) / besselk_asym(2, Thetaer) * cos(theta);
 
-      //my stuff
+      // my correction, used normally
       //*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
       // (gsl_sf_bessel_Kn(0,1./Thetae) - Je(Xe)) / gsl_sf_bessel_Kn(2,1./Thetae) * cos(theta);
 
-      //fancy george fits
-      // Switch between three different fits for rho_V
+
+      // used for EHT library
       if (Thetae > 3.0) {
 	  // High temperature: use approximations to bessel
 	  *rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
