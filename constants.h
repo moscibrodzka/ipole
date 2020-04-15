@@ -1,5 +1,7 @@
 /* == Definition of constants in CGS units == */
 
+#define MPCL2                           (0.0015033              )
+
 #define EE				(4.80320680e-10		) /* electron charge */
 #define CL				(2.99792458e10		) /* speed of light */
 #define ME				(9.1093826e-28		) /* electron mass */
@@ -35,9 +37,9 @@
 #define MEARTH			(5.976e27			) /* Earth's mass */
 #define REARTH			(6.378e8			) /* Earth's radius */
 
-#define DSGRA			(8.27e3 * PC			) /* Distance from Earth to Sgr A*  */
-#define DM87			(16.7e6 * PC			) /* Distance from Earth to M87  */
-#define DABHB			(1.2e3 * PC			) /* Distance from Earth to A0620-00  */
+#define DSGRA			(8.178e3 * PC			) /* Distance from Earth to Sgr A*  */
+#define DM87			(16.9e6 * PC			) /* Distance from Earth to M87  */
+#define DABHB			(1.06e3 * PC			) /* Distance from Earth to A0620-00  */
 
 #define TCBR			(2.726				) /* CBR temperature, from COBE */
 
