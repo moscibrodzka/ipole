@@ -15,11 +15,14 @@ int compare_doubles(const void *a, const void *b)
 void make_ppm(double p[NX][NY], double freq, char filename[])
 {
 
-	int i, j, k;
-	double min, max;
+	int i, j, k, npixels;
+	double *q, min, max;
 	FILE *fp;
-	double q[NX*NY];
+	double *alloc_double_array( int ndata )  ;
 
+	npixels = NX * NY;
+
+	q = alloc_double_array(npixels);
 	k = 0 ;
         for (i = 0; i < NX; i++)
 	for (j = 0; j < NY; j++) {
@@ -27,7 +30,6 @@ void make_ppm(double p[NX][NY], double freq, char filename[])
 		k++ ;
 	}
 
-	int npixels = NX*NY;
 	qsort(q, npixels, sizeof(double), compare_doubles);
 	if (q[0] < 0) {		/* must be log scaling */
 		min = q[(int) (npixels * BOT_FRAC)];
@@ -50,14 +52,19 @@ void make_ppm(double p[NX][NY], double freq, char filename[])
 		min, max, freq, NX, NY, 255);
 	fflush(fp);
 
+	
+	//min=0.0001;
+	//max=0.0026;
+	
 	int red,green,blue;
 	for (j = NY-1; j >= 0; j--) 
 	for (i = 0; i < NX; i++) 
 	{
-		rainbow_palette(p[i][j],min,max,&red,&green,&blue) ;
-		fputc((char) red, fp);
-                fputc((char) green, fp);
-                fputc((char) blue, fp);
+	  rainbow_palette(p[i][j],min,max,&red,&green,&blue) ;
+	  //monika_palette(p[i][j],min,max,&red,&green,&blue) ;
+	  fputc((char) red, fp);
+	  fputc((char) green, fp);
+	  fputc((char) blue, fp);
 	}
 
 	fclose(fp);
@@ -79,7 +86,7 @@ void make_ppm(double p[NX][NY], double freq, char filename[])
 
 void rainbow_palette(double data, double min, double max, int *pRed, int *pGreen, int *pBlue)
 {
-  double a, b, c, d, e, f;
+  double aa, b, c, d, e, f;
   double x, y;
   double max_min = max - min ;
 
@@ -87,17 +94,17 @@ void rainbow_palette(double data, double min, double max, int *pRed, int *pGreen
     x = (data - min)/(max_min) ;
     
     /* ========== Red ============ */
-    a = 4.0*x - 1.52549019607844;
+    aa = 4.0*x - 1.52549019607844;
     b = 4.52941176470589 - 4.0*x;
-    y = a < b ? a : b;
+    y = aa < b ? aa : b;
     *pRed = (int)(255.0*y);
     *pRed = *pRed >   0 ? *pRed :   0;
     *pRed = *pRed < 255 ? *pRed : 255;
 
     /* ========== Green ========== */
-    a = 4.0*x - 0.521568627450979;
+    aa = 4.0*x - 0.521568627450979;
     b = 2.52549019607844 - 4.0*x;
-    c = a < b ? a : b;
+    c = aa < b ? aa : b;
     d = 4.0*x - 1.53725490196073;
     e = 3.52941176470581 - 4.0*x;
     f = d < e ? d : e;
@@ -107,9 +114,9 @@ void rainbow_palette(double data, double min, double max, int *pRed, int *pGreen
     *pGreen = *pGreen < 255 ? *pGreen : 255;
 
     /* ========== Blue =========== */
-    a = 4.0*x + 0.498039215686276;
+    aa = 4.0*x + 0.498039215686276;
     b = 2.50980392156862 - 4.0*x;
-    y = a < b ? a : b;
+    y = aa < b ? aa : b;
     *pBlue = (int)(255.0*y);
     *pBlue = *pBlue >   0 ? *pBlue :   0;
     *pBlue = *pBlue < 255 ? *pBlue : 255;
@@ -121,3 +128,75 @@ void rainbow_palette(double data, double min, double max, int *pRed, int *pGreen
 
   return;
 }
+
+
+
+
+void monika_palette(double data, double min, double max, int *pRed, int *pGreen, int *pBlue)
+{
+  double aa, b, c, d, e, f;
+  double x, y;
+  double max_min = max - min ;
+
+  if(max_min > 0.0) { // trust no one
+    x = (data - min)/(max_min) ;
+    
+    /* ========== Red ============ */
+     aa = 4.0*x - 1.52549019607844;
+     b = 4.52941176470589 - 4.0*x;
+     y = aa < b ? aa : b;
+     y = x;
+     *pRed = (int)(255.0*y);
+     *pRed = *pRed >   0 ? *pRed :   0;
+     *pRed = *pRed < 255 ? *pRed : 255;
+     
+    /* ========== Green ========== */
+    aa = 4.0*x - 0.521568627450979;
+    b = 2.52549019607844 - 4.0*x;
+    c = aa < b ? aa : b;
+    d = 4.0*x - 1.53725490196073;
+    e = 3.52941176470581 - 4.0*x;
+    f = d < e ? d : e;
+    y = c > f ? c : f;
+    y=x;
+    *pGreen = (int)(255.0*y);
+    *pGreen = *pGreen >   0 ? *pGreen :   0;
+    *pGreen = *pGreen < 255 ? *pGreen : 255;
+
+    /* ========== Blue =========== */
+    aa = 4.0*x + 0.498039215686276;
+    b = 2.50980392156862 - 4.0*x;
+    y = aa < b ? aa : b;
+    y=x;
+    *pBlue = (int)(255.0*y);
+    *pBlue = *pBlue >   0 ? *pBlue :   0;
+    *pBlue = *pBlue < 255 ? *pBlue : 255;
+
+  }
+  else {
+    *pRed = *pGreen = *pBlue = (data > max ? 255: 0) ;
+  }
+
+  return;
+}
+
+
+/*********************************************************************************************
+  alloc_double_array():
+     -- returns with a pointer to an array of size "ndata"
+ *********************************************************************************************/
+double *alloc_double_array( int ndata ) 
+{ 
+  double *pa;
+
+  pa = (double *) calloc(ndata,sizeof(double));
+  if( pa == NULL ) { 
+    fprintf(stderr,"Error allocating a double array of length = %d \n", ndata);
+    fprintf(stderr,"....Exiting...\n");
+    fflush(stderr);
+    exit(1);
+  }
+  return(pa);
+}
+
+
