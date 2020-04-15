@@ -143,7 +143,6 @@ void evolve_N(double Xi[NDIM], double Kconi[NDIM],
 	double SIt,SQt,SUt,SVt;
 
 	// intermediate value 
-
 	SIt = dlam*jI - dlam*(aI*SI0 + aQ*SQ0 + aU*SU0 + aV*SV0) + SI0;
 	SQt = dlam*jQ - dlam*(aQ*SI0 + aI*SQ0 + rV*SU0 - rU*SV0) + SQ0;
 	SUt = dlam*jU - dlam*(aU*SI0 - rV*SQ0 + aI*SU0 + rQ*SV0) + SU0;
@@ -155,7 +154,6 @@ void evolve_N(double Xi[NDIM], double Kconi[NDIM],
 	SU = dlam*jU - 0.5*dlam*(aU*SI0 - rV*SQ0 + aI*SU0 + rQ*SV0 + aU*SIt - rV*SQt + aI*SUt + rQ*SVt) + SU0;
 	SV = dlam*jV - 0.5*dlam*(aV*SI0 + rU*SQ0 - rQ*SU0 + aI*SV0 + aV*SIt + rU*SQt - rQ*SUt + aI*SVt) + SV0;
 	
-
 	/* re-pack the Stokes parameters into N */
 	stokes_to_tensor(SI, SQ, SU, SV, N_tetrad);
 	complex_tetrad_to_coord_rank2(N_tetrad, Econ, N_coord);
