@@ -154,39 +154,86 @@ void make_plasma_tetrad(double Ucon[NDIM], double Kcon[NDIM],
 
 */
 
+/*this is same as lower(), raise()*/
+inline void flip_index(double ucon[NDIM],double Gcov[NDIM][NDIM],double ucov[NDIM]){
+
+  ucov[0] = Gcov[0][0] * ucon[0]
+  + Gcov[0][1] * ucon[1]
+  + Gcov[0][2] * ucon[2]
+  + Gcov[0][3] * ucon[3];
+    ucov[1] = Gcov[1][0] * ucon[0]
+  + Gcov[1][1] * ucon[1]
+  + Gcov[1][2] * ucon[2]
+  + Gcov[1][3] * ucon[3];
+    ucov[2] = Gcov[2][0] * ucon[0]
+  + Gcov[2][1] * ucon[1]
+  + Gcov[2][2] * ucon[2]
+  + Gcov[2][3] * ucon[3];
+    ucov[3] = Gcov[3][0] * ucon[0]
+  + Gcov[3][1] * ucon[1]
+  + Gcov[3][2] * ucon[2]
+  + Gcov[3][3] * ucon[3];
+  
+}
+
 void make_camera_tetrad(double X[NDIM], double Econ[NDIM][NDIM],
 			double Ecov[NDIM][NDIM])
 {
-    double Gcov[NDIM][NDIM];
+    double Gcov[NDIM][NDIM],Gcon[NDIM][NDIM];
     double Ucam[NDIM];
-    double Kcon[NDIM];
+    double Kcon[NDIM],Kcov[NDIM];
     double trial[NDIM];
 
-
-    /* could use normal observer here; at present, camera has dx^i/dtau = 0 */
-    Ucam[0] = 1.;
-    Ucam[1] = 0.;
-    Ucam[2] = 0.;
-    Ucam[3] = 0.;
-
-    /* this puts a photon with zero angular momentum in the center of
-       the field of view */
-    trial[0] = 1.;
-    trial[1] = 1.;
-    trial[2] = 0.;
-    trial[3] = 0.;
     gcov_func(X, Gcov);
-    double Gcon[NDIM][NDIM];
     gcon_func(Gcov, Gcon);
-    lower(trial, Gcon, Kcon);
+    
+    //new option
+    //camera_center_zamo
+    trial[0]=-1;
+    trial[1]=0;
+    trial[2]=0;
+    trial[3]=0;
+    flip_index(trial,Gcon,Ucam);
 
+    trial[0]=1;
+    trial[1]=1;
+    trial[2]=0;
+    trial[3]=0;
+    flip_index(trial,Gcon,Kcon);
+    
     trial[0] = 0.;
     trial[1] = 0.;
     trial[2] = 1.;
     trial[3] = 0.;
 
     make_plasma_tetrad(Ucam, Kcon, trial, Gcov, Econ, Ecov);
+    
+    //original
+    if(0){
+      /* could use normal observer here; at present, camera has dx^i/dtau = 0 */
+      Ucam[0] = 1.;
+      Ucam[1] = 0.;
+      Ucam[2] = 0.;
+      Ucam[3] = 0.;
 
+      /* this puts a photon with zero angular momentum in the center of
+	 the field of view */
+      Kcov[0] = 1.;
+      Kcov[1] = 1.;
+      Kcov[2] = 0.;
+      Kcov[3] = 0.;
+      lower(Kcov, Gcon, Kcon);
+       
+      trial[0] = 0.;
+      trial[1] = 0.;
+      trial[2] = 1.;
+      trial[3] = 0.;
+      make_plasma_tetrad(Ucam, Kcon, trial, Gcov, Econ, Ecov);
+    }
+
+    
     /* done! */
 }
+
+
 
