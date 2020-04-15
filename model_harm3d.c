@@ -13,6 +13,7 @@ double ****ucon;
 double ****ucov;
 double ****p;
 double ***ne;
+double ***uu;
 double ***thetae;
 double ***b;
 
@@ -172,6 +173,20 @@ double get_model_thetae(double X[NDIM])
 	return(interp_scalar(X, thetae)) ;
 }
 
+
+double get_model_uu(double X[NDIM])
+{
+	if(X[1] < startx[1] || 
+	   X[1] > stopx[1]  || 
+	   X[2] < startx[2] || 
+	   X[2] > stopx[2]) {
+	   	return(0.) ;
+	}
+	
+	return(interp_scalar(X, uu)) ;
+}
+
+
 //b field strength in Gauss
 double get_model_b(double X[NDIM])
 {
@@ -232,7 +247,6 @@ void interp_fourv(double X[NDIM], double ****fourv, double Fourv[NDIM]){
 	d3 = del[1] * b2;
 	d2 = del[2] * b1;
 	d4 = del[1] * del[2];
-
 
 	/* Interpolate along x1,x2 first */
 	Fourv[0] = d1*fourv[i][j][k][0] + d2*fourv[i][jp1][k][0] + d3*fourv[ip1][j][k][0] + d4*fourv[ip1][jp1][k][0];
@@ -304,7 +318,7 @@ double interp_scalar(double X[NDIM], double ***var)
 
  ***********************************************************************************/
 
-
+//check if this include the cuts
 void Xtoijk(double X[NDIM], int *i, int *j, int *k, double del[NDIM])
 {
   double phi;
@@ -360,36 +374,12 @@ void Xtoijk(double X[NDIM], int *i, int *j, int *k, double del[NDIM])
 	return;
 }
 
-//#define SINGSMALL (1.E-20)
 /* return boyer-lindquist coordinate of point */
 void bl_coord(double *X, double *r, double *th)
 {
-
-	// for cfg data files
-	//*r = Rin * exp(X[1]);
-	// for scn data files
 	*r = exp(X[1]) + R0 ;
-	//*th = th_beg + th_len *X[2] + hslope*sin(2. * M_PI * X[2]);  //2D
-	//hotaka run, hslope=0?
 	//*th = M_PI * X[2] + hslope*sin(2. * M_PI * X[2]);
-	*th = th_beg + M_PI*X[2]  ;
-
-	//fix coord
-	/*
-	if (fabs(*th) < SINGSMALL) {
-	  if ((*th) >= 0)
-	    *th = SINGSMALL;
-	  if ((*th) < 0)
-	    *th = -SINGSMALL;
-        }
-        if (fabs(M_PI - (*th)) < SINGSMALL) {
-	  if ((*th) >= M_PI)
-	    *th = M_PI + SINGSMALL;
-	  if ((*th) < M_PI)
-	    *th = M_PI - SINGSMALL;
-        }
-		
-	*/
+	*th = M_PI*X[2]  ;
 	return;
 }
 
@@ -415,7 +405,7 @@ void set_units(char *munitstr)
 	if(fp == NULL) {
 		fprintf(stderr,"Can't find model_param.dat\n") ;
 		exit(1) ;
-	}
+}
 	fscanf(fp,"%lf",&MBH) ;
 	fclose(fp) ;
 
@@ -442,39 +432,68 @@ void init_physical_quantities(void)
 {
 	int i, j, k;
         double bsq,Thetae_unit,sigma_m,beta,b2,trat;
-
+	//	double game,gamp,ue,Te,Tp;
+	double r,th,X[NDIM];
+	
 	for (i = 0; i < N1; i++) {
-		for (j = 0; j < N2; j++) {
-			for (k = 0; k < N3; k++) {
-			  ne[i][j][k] = p[KRHO][i][j][k] * RHO_unit/(MP+ME) ;
+	  X[1] = startx[1] + ( i + 0.5)*dx[1];
+	  for (j = 0; j < N2; j++) {
+	    X[2] = startx[2] + (j+0.5)*dx[2];
+	    bl_coord(X, &r, &th);
 
-			  bsq= bcon[i][j][k][0] * bcov[i][j][k][0] +
-			       bcon[i][j][k][1] * bcov[i][j][k][1] +
-			       bcon[i][j][k][2] * bcov[i][j][k][2] +
-			       bcon[i][j][k][3] * bcov[i][j][k][3] ;
+	    for (k = 0; k < N3; k++) {
+	      
+	      uu[i][j][k] = p[UU][i][j][k];
 
-			  b[i][j][k] = sqrt(bsq)*B_unit ;
-			  sigma_m=bsq/p[KRHO][i][j][k] ;
+	      bsq= bcon[i][j][k][0] * bcov[i][j][k][0] +
+		bcon[i][j][k][1] * bcov[i][j][k][1] +
+		bcon[i][j][k][2] * bcov[i][j][k][2] +
+		bcon[i][j][k][3] * bcov[i][j][k][3] ;
+	      b[i][j][k] = sqrt(bsq)*B_unit ;
+	      sigma_m=bsq/p[KRHO][i][j][k] ;
 
-			  // beta presciption
-			  beta=p[UU][i][j][k]*(gam-1.)/0.5/bsq;
-			  b2=pow(beta,2);
-			  trat = trat_d * b2/(1. + b2) + trat_j /(1. + b2);
-			  Thetae_unit = (gam - 1.) * (MP / ME) / trat;
-			  thetae[i][j][k] = (p[UU][i][j][k]/p[KRHO][i][j][k])* Thetae_unit;
-			  
-			  //strongly magnetized = empty, no shiny spine
-			  if(sigma_m > 2.0) ne[i][j][k]=0.0;
+	      /* isothermal jet */
+	      /*
+		double Be = -(1.+ p[UU][i][j][k]/p[KRHO][i][j][k]*gam)*ucov[i][j][k][0];
+		if(Be>=1.02) thetae[i][j][k] = 20.;
+	      */
 
-			  //also empty zones with anomalously high temperature
-                          if(thetae[i][j][k] > 100.0) ne[i][j][k]=0.0;
+	      /* beta presciption */
+	      beta=p[UU][i][j][k]*(gam-1.)/0.5/bsq;
+	      b2=pow(beta,2);
+	      trat = trat_d * b2/(1. + b2) + trat_j /(1. + b2);
+	      Thetae_unit= (MP / ME) * 2./(2.+trat) * (gam-1.);
+	      thetae[i][j][k] = (p[UU][i][j][k]/p[KRHO][i][j][k])* Thetae_unit;
 
-                          //also empty last two zones near axis
-                          if(j < 2 || N2-1-j < 2) ne[i][j][k]=0.0;
+	      //kawazura !
+	      /*
+	      game=4./3.;
+	      gamp=5./3.;
+	      Te=pow(p[KRHO][i][j][k],game-1)*p[KEL][i][j][k];
+	      ue=Te/(game-1)*p[KRHO][i][j][k];
+	      Tp=(gamp-1)*(p[UU][i][j][k]-ue)/p[KRHO][i][j][k];
+	      thetae[i][j][k]=(MP/ME)*Te;
+	      */
 
-			}
-		}
+	      /* floor and ceiling on temp */
+	      thetae[i][j][k]=MAX(thetae[i][j][k],THETAE_MIN);
+	      thetae[i][j][k]=MIN(thetae[i][j][k],THETAE_MAX);
+	      	      
+	      ne[i][j][k] = p[KRHO][i][j][k] * RHO_unit/(MP+ME) ;
+	      
+	      if(sigma_m > sigma_cut) {
+		  ne[i][j][k]=0.0;
+		  thetae[i][j][k]=0.0;
+		  b[i][j][k]=0.0;
+	      }
+	      
+	      
+	    }
+	  }
 	}
+
+
+
 
 	return ;
 }
@@ -593,6 +612,7 @@ void init_storage(void)
 	p = (double ****)malloc_rank1(NPRIM,sizeof(double *));
 	for(i = 0; i < NPRIM; i++) p[i] = malloc_rank3(N1,N2,N3);
 	ne = malloc_rank3(N1,N2,N3);
+	uu = malloc_rank3(N1,N2,N3);
 	thetae = malloc_rank3(N1,N2,N3);
 	b = malloc_rank3(N1,N2,N3);
 
@@ -614,13 +634,14 @@ extern double ****ucon;
 extern double ****ucov;
 extern double ****p;
 extern double ***ne;
+extern double ***uu;
 extern double ***thetae;
 extern double ***b;
 
 void init_harm3d_grid(char *fname)
 {
 	hid_t file_id;
-	double th_end,th_cutout;
+	double th_end,th_cutout,t;
 
 	file_id = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT);
 	if(file_id < 0){
@@ -628,6 +649,7 @@ void init_harm3d_grid(char *fname)
 		exit(1234);
 	}
 
+	H5LTread_dataset_double(file_id,		"/Header/Grid/t", 	&t);
 	H5LTread_dataset_int(file_id,		"/Header/Grid/totalsize1", 	&N1);
 	H5LTread_dataset_int(file_id,		"/Header/Grid/totalsize2", 	&N2);
 	H5LTread_dataset_int(file_id,		"/Header/Grid/totalsize3", 	&N3);
@@ -644,43 +666,32 @@ void init_harm3d_grid(char *fname)
 	H5LTread_dataset_double(file_id,	"/Header/Grid/Rin",		&Rin);
 	H5LTread_dataset_double(file_id, 	"/Header/Grid/Rout",		&Rout);
 	H5LTread_dataset_double(file_id, 	"/Header/Grid/h_slope",		&hslope);
-	//H5LTread_dataset_double(file_id, 	"/Header/Grid/X1_slope",	&X1slope);
-	//H5LTread_dataset_double(file_id,	"/Header/Grid/X1_0",		&X10);
 	H5LTread_dataset_double(file_id,	"/Header/Grid/th_cutout",  	&th_cutout);
-	//H5LTread_dataset_double(file_id,	"/Header/Grid/th_beg",		&th_beg);
-	//H5LTread_dataset_double(file_id,	"/Header/Grid/th_end",		&th_end);
 
-	/* Account for 3 ghost zones */
-
+	//respin
+	//	a=0.;
 	
+	/* Account for 3 ghost zones */
 	startx[1] += 3*dx[1];
 	startx[2] += 3*dx[2];
         startx[3] += 3*dx[3];
-	
-	fprintf(stdout,"start: %g %g %g \n",startx[1],startx[2],startx[3]);
-	//below is equivalent to the above
-	/*
-	startx[1] = log(Rin-R0);       
-        startx[2] = th_cutout/M_PI ; 
-	*/
-
-	fprintf(stdout,"th_cutout: %g  %d x %d x %d\n",th_cutout,N1,N2,N3);
-	
-
-	th_beg=th_cutout;
-	th_end=M_PI-th_cutout;
-	th_len = th_end-th_beg;
 
 	stopx[0] = 1.;
 	stopx[1] = startx[1]+N1*dx[1];
 	stopx[2] = startx[2]+N2*dx[2];
 	stopx[3] = startx[3]+N3*dx[3];
 
+	th_beg=th_cutout;
+	th_end=M_PI-th_cutout;
+	th_len = th_end-th_beg;
+	
+	fprintf(stdout,"size: %d %d %d t= %g M\n",N1,N2,N3, t);
+	fprintf(stdout,"---> a,R0 %g %g \n",a,R0);
+	fprintf(stdout,"start: %g %g %g \n",startx[1],startx[2],startx[3]);
+	fprintf(stdout,"th_cutout: %g  %d x %d x %d\n",th_cutout,N1,N2,N3);
 	fprintf(stdout,"stop: %g %g %g \n",stopx[1],stopx[2],stopx[3]);
 
-
 	init_storage();
-
 	H5Fclose(file_id);
 }
 
@@ -693,7 +704,9 @@ void init_harm3d_data(char *fname)
 	double dMact, Ladv, MBH;
 	double r,th;
 	FILE *fp;
-
+	double BSQ,Trphi,dotJ;
+	int dotJ_count;
+	      
 	fp = fopen("model_param.dat","r") ;
         if(fp == NULL) {
 	  fprintf(stderr,"Can't find model_param.dat\n") ;
@@ -704,7 +717,6 @@ void init_harm3d_data(char *fname)
 	MBH=MBH*MSUN;
         L_unit = GNEWT * MBH / (CL * CL);
         T_unit = L_unit / CL;
-
 	
 	file_id = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT);
 	if(file_id < 0){
@@ -712,8 +724,6 @@ void init_harm3d_data(char *fname)
 		exit(12345);
 	}
 
-
-	//	fprintf(stderr,"data incoming...");
 	H5LTread_dataset_double(file_id, "rho",	&(p[KRHO][0][0][0]));
 	H5LTread_dataset_double(file_id, "uu",	&(p[UU][0][0][0]));
 	H5LTread_dataset_double(file_id, "v1",	&(p[U1][0][0][0]));
@@ -723,13 +733,20 @@ void init_harm3d_data(char *fname)
 	H5LTread_dataset_double(file_id, "B2",	&(p[B2][0][0][0]));
 	H5LTread_dataset_double(file_id, "B3",	&(p[B3][0][0][0]));
 
+	//kawazura
+	/*
+	H5LTread_dataset_double(file_id, "KEL",	&(p[KEL][0][0][0]));
+	H5LTread_dataset_double(file_id, "KTOT",&(p[KTOT][0][0][0]));
+	*/
+
 	H5Fclose(file_id);
 	X[0] = 0.;
 	X[3] = 0.;
 
 	//fprintf(stderr,"reconstructing 4-vectors...\n");
 	dMact = Ladv = 0.;
-
+	dotJ=0.0;
+	
 	//reconstruction of variables at the zone center!
 	for(i = 0; i < N1; i++){
 	  X[1] = startx[1] + ( i + 0.5)*dx[1];
@@ -738,7 +755,6 @@ void init_harm3d_data(char *fname)
 	    gcov_func(X, gcov); // in system with cut off
 	    gcon_func(gcov, gcon);
 	    g = gdet_func(gcov);
-
 	    bl_coord(X, &r, &th);
 
 	    for(k = 0; k < N3; k++){
@@ -763,14 +779,39 @@ void init_harm3d_data(char *fname)
 	      if(i <= 20) dMact += g * p[KRHO][i][j][k] * ucon[i][j][k][1] ;
 	      if(i >= 20 && i < 40) Ladv += g * p[UU][i][j][k] * ucon[i][j][k][1] * ucov[i][j][k][0] ;
 
+	      //compute dimentionless T^r_phi over phi and theta
+	      /*
+	      if ( i == (N1-2) ){
+		BSQ=bcon[i][j][k][0]*bcov[i][j][k][0]+
+		  bcon[i][j][k][1]*bcov[i][j][k][1]+
+		  bcon[i][j][k][2]*bcov[i][j][k][2]+
+		  bcon[i][j][k][3]*bcov[i][j][k][3];
+		Trphi =  (p[KRHO][i][j][k]+gam*p[UU][i][j][k]+BSQ)*ucon[i][j][k][1]*ucov[i][j][k][3]-bcon[i][j][k][1]*bcov[i][j][k][3] ;
+		dotJ += Trphi*g*dx[2]*dx[3];
+	      }
+	      */
+	      
 	    }
 	  }
 	}
-	
+
 	dMact *= dx[3]*dx[2] ;
 	dMact /= 21. ;
 	Ladv *= dx[3]*dx[2] ;
 	Ladv /= 21. ;
+
+	/*
+	double Mstar=0.4*MSUN;
+	double Jorb= (Mstar*MBH)/(Mstar+MBH)*sqrt(GNEWT*(MBH+Mstar)*3.79*RSUN); //this is in cgs for sure
+	fprintf(stderr,"Jorb:%g [gcm2/s]\n",Jorb) ;
+	*/
+	/*
+	fprintf(stderr,"dotJ: %g [code]\n",dotJ) ;
+	double dotJ_unit=M_unit*pow(L_unit,2)/pow(T_unit,2); 
+	dotJ *= dotJ_unit; 
+	fprintf(stderr,"dotJ: %g [gcm2/s2] \n",dotJ);
+	exit(1);
+	*/
 
 	fprintf(stderr,"dMact: %g [code]\n",dMact) ;
 	fprintf(stderr,"Ladv: %g [code]\n",Ladv) ;
@@ -780,69 +821,58 @@ void init_harm3d_data(char *fname)
         fprintf(stderr,"Mdot: %g [Mdotedd]\n",-dMact*M_unit/T_unit/Mdotedd) ;
         fprintf(stderr,"Mdotedd: %g [g/s]\n",Mdotedd) ;
         fprintf(stderr,"Mdotedd: %g [MSUN/YR]\n",Mdotedd/(MSUN/YEAR)) ;
-	
+
 }
 
-double root_find(double th)
+/* this is from illinois version that does not need second derivative of theta, works for funky cooridnates or whatever */
+double theta_func(double x[NDIM])
 {
-    int i;
-    double X2a, X2b, X2c, tha, thb, thc;
-    double dthdX2, dtheta_func(double y), theta_func(double y);
+    double r,th;
+    bl_coord(x, &r, &th);
+    return th;
+}
 
-    if (th < M_PI / 2.) {
-	X2a = 0. - SMALL;
-	X2b = 0.5 + SMALL;
+double root_find2(double X[NDIM])
+{
+    double th = X[2];
+    double thb, thc;
+
+    double Xa[NDIM], Xb[NDIM], Xc[NDIM];
+    Xa[1] = log(X[1]);
+    Xa[3] = X[3];
+    Xb[1] = Xa[1];
+    Xb[3] = Xa[3];
+    Xc[1] = Xa[1];
+    Xc[3] = Xa[3];
+
+    if (X[2] < M_PI / 2.) {
+        Xa[2] = 0. - SMALL;
+        Xb[2] = 0.5 + SMALL;
     } else {
-	X2a = 0.5 - SMALL;
-	X2b = 1. + SMALL;
+        Xa[2] = 0.5 - SMALL;
+        Xb[2] = 1. + SMALL;
     }
 
-    tha = theta_func(X2a);
-    thb = theta_func(X2b);
+    //tha = theta_func(Xa);                                                                                                                                          
+    thb = theta_func(Xb);
 
     /* bisect for a bit */
-    for (i = 0; i < 10; i++) {
-	X2c = 0.5 * (X2a + X2b);
-	thc = theta_func(X2c);
+    double tol = 1.e-9;
+    for (int i = 0; i < 1000; i++) {
+        Xc[2] = 0.5 * (Xa[2] + Xb[2]);
+        thc = theta_func(Xc);
 
-	if ((thc - th) * (thb - th) < 0.)
-	    X2a = X2c;
-	else
-	    X2b = X2c;
+        if ((thc - th) * (thb - th) < 0.)
+            Xa[2] = Xc[2];
+        else
+            Xb[2] = Xc[2];
+
+        double err = theta_func(Xc) - th;
+        if (fabs(err) < tol)
+            break;
     }
 
-    /* now do a couple of newton-raphson strokes */
-    tha = theta_func(X2a);
-    for (i = 0; i < 2; i++) {
-	dthdX2 = dtheta_func(X2a);
-	X2a -= (tha - th) / dthdX2;
-	tha = theta_func(X2a);
-    }
+    return (Xa[2]);
 
-    return (X2a);
-}
-
-
-/*this does not depend on theta cut-outs there is no squizzing*/
-double theta_func(double x)
-{
-    //2D 
-    //return (M_PI * x + 0.5 * (1. - hslope) * sin(2. * M_PI * x));
-    //3D new
-    // return th_len * x + th_beg +  hslope * sin(2 * M_PI * x);
-    //3D run 
-    //return (M_PI * x + th_beg);
-    return (M_PI * x);
-}
-
-double dtheta_func(double x)
-{
-    //2D 
-    //return (M_PI * (1. + (1. - hslope) * cos(2. * M_PI * x)));
-    //3D new
-    //return th_len + 2. * M_PI * hslope * cos(2 * M_PI * x);
-    //3D run 
-    return M_PI;
-    //return th_len;
 }
 
