@@ -43,19 +43,27 @@ double gdet_func(double gcov[][NDIM])
 }
 
 
-/* invert gcov to get gcon */
-void gcon_func(double gcov[][NDIM], double gcon[][NDIM])
+
+int gcon_func(double gcov[][NDIM], double gcon[][NDIM])
 {
-    int invert_matrix(double Am[][NDIM], double Aminv[][NDIM]);
 
-    invert_matrix(gcov, gcon);
+  int invert_matrix(double Am[][NDIM], double Aminv[][NDIM]);
 
-    /* done! */
+  int sing = invert_matrix(gcov, gcon);
+  if (sing) {
+    for (int mu = 0; mu < NDIM; mu++) {
+      for (int nu = 0; nu < NDIM; nu++) {
+        fprintf(stdout,"gcov[%i][%i] = %e\n", mu, nu, gcov[mu][nu]);
+      }
+    }
+  }
+
+  return sing;
+  
 }
 
 /* generic connection routine, using numerical derivatives */
 /* Sets the spatial discretization in numerical derivatives : */
-#define DEL 1.e-7
 
 void get_connection_num(double X[NDIM], double conn[NDIM][NDIM][NDIM])
 {
@@ -66,45 +74,53 @@ void get_connection_num(double X[NDIM], double conn[NDIM][NDIM][NDIM])
   double gcov[NDIM][NDIM];
   double gh[NDIM][NDIM];
   double gl[NDIM][NDIM];
-
+  const double del=1.e-7;
+  
   gcov_func(X, gcov);
   gcon_func(gcov, gcon);
-
+  
   for (k = 0; k < NDIM; k++) {
-    for (l = 0; l < NDIM; l++)   Xh[l] = X[l];
-    for (l = 0; l < NDIM; l++)   Xl[l] = X[l];
-    Xh[k] += DEL;
-    Xl[k] -= DEL;
+    for (l = 0; l < NDIM; l++) Xh[l] = X[l];
+    for (l = 0; l < NDIM; l++) Xl[l] = X[l];
+    Xh[k] += del;
+    Xl[k] -= del;    
     gcov_func(Xh, gh);
     gcov_func(Xl, gl);
 
     for (i = 0; i < NDIM; i++){
       for (j = 0; j < NDIM; j++){
-        conn[i][j][k] =  (gh[i][j] - gl[i][j]) / (Xh[k] - Xl[k]);
+	conn[i][j][k] =  (gh[i][j] - gl[i][j]) / (Xh[k] - Xl[k]);
       }
     }
   }
-
+  
   /* now rearrange to find \Gamma_{ijk} */
   for (i = 0; i < NDIM; i++)
     for (j = 0; j < NDIM; j++)
       for (k = 0; k < NDIM; k++)
         tmp[i][j][k] =  0.5 * (conn[j][i][k] + conn[k][i][j] - conn[k][j][i]);
 
-
   /* finally, raise index */
   for (i = 0; i < NDIM; i++)
     for (j = 0; j < NDIM; j++)
       for (k = 0; k < NDIM; k++) {
         conn[i][j][k] = 0.;
-        for (l = 0; l < NDIM; l++)   conn[i][j][k] += gcon[i][l] * tmp[l][j][k];
+        for (l = 0; l < NDIM; l++) {
+	  conn[i][j][k] += gcon[i][l] * tmp[l][j][k];
+
+	  /*
+	  if(conn[i][j][k] > 1.0e15){
+	    fprintf(stdout,"Error:: conn[i][j][k] is too big!  conn=%10.10f \n", conn[i][j][k]);
+	  }
+	  */
+	  
+	}
       }
 
 
   /* done! */
 
 }
-#undef DEL
 
 
 /* 
@@ -234,7 +250,8 @@ int LU_decompose(double A[][NDIM], int permute[])
 
     const double absmin = 1.e-30;	/* Value used instead of 0 for singular matrices */
 
-    static double row_norm[NDIM];
+    //    static double row_norm[NDIM];
+    double row_norm[NDIM];
     double absmax, maxtemp;
 
     int i, j, k, max_row;
