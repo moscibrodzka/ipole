@@ -1,4 +1,3 @@
-
 /*
 
 all model-independent functions related to creation and 
@@ -171,9 +170,11 @@ void set_Econ_from_trial(double Econ[4], int defdir, double trial[4])
 double check_handedness(double Econ[NDIM][NDIM], double Gcov[NDIM][NDIM])
 {
     int i, j, k, l;
-    static int firstc = 1;
+    //    static int firstc = 1;
+    int firstc = 1;
     void set_levi_civita(double levi_civita[NDIM][NDIM][NDIM][NDIM]);
-    static double levi_civita[NDIM][NDIM][NDIM][NDIM];
+    //static double levi_civita[NDIM][NDIM][NDIM][NDIM];
+    double levi_civita[NDIM][NDIM][NDIM][NDIM];
 
     if (firstc) {
 	firstc = 0;
