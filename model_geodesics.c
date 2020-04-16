@@ -10,11 +10,11 @@ stepsize
 */
 
 #include "decs.h"
-/* condition for stopping the backwards-in-lambda
-   integration of the photon geodesic */
 
-#define LRMAX (log(100.))
-#define LRMIN (log(1.01*Rh)) 
+/* condition for stopping the backwards-in-lambda
+   integration of the photon geodesic, default values */
+#define LRMAX (log(1000.))
+#define LRMIN (log(1.05*Rh)) 
 int stop_backward_integration(double X[NDIM], double Kcon[NDIM], double Xcam[NDIM])
 {
     if ((X[1] > LRMAX && Kcon[1] < 0.) ||       /* out far */
@@ -32,6 +32,7 @@ double stepsize(double X[NDIM], double Kcon[NDIM])
 {
         double dl, dlx1, dlx2, dlx3;
         double idlx1,idlx2,idlx3 ;
+	//stepsize paramter, default
 	double eps=0.01;
 	
         dlx1 = eps / (fabs(Kcon[1]) + SMALL*SMALL) ;
