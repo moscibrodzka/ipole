@@ -41,6 +41,12 @@
 #define DM87			(16.9e6 * PC			) /* Distance from Earth to M87  */
 #define DABHB			(1.06e3 * PC			) /* Distance from Earth to A0620-00  */
 
+#define MSGRA			(4.154e6 	                ) /* Mass of Sgr A* in MSUN */
+#define MM87			(6.5e9   			) /* Mass of M87  */
+#define MABHB			(6.6 	         		) /* Mass of A0620-00  */
+
+
+
 #define TCBR			(2.726				) /* CBR temperature, from COBE */
 
 /* 

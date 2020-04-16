@@ -14,30 +14,52 @@
 #include <omp.h>
 #endif
 
-//parameters to change
-#define FMKS 0 //works for eht runs
-#define MKS  1 //works for my old runs as well
+
+//change to 1 when running Novikov-Thorne model
+#define NT_PROB 1
+//which source SGRA,M87,DABHB, or NT model
+#define SOURCE_SGRA 0
+#define SOURCE_M87  0
+#define SOURCE_DABHB 0
+#define SOURCE_NT 1
+
+//image resolution
+#define NX  80
+#define NY  80
+
+// FOV in [M] 
+#define DX 40.
+#define DY 40.
+
+//parameters of eDF
 #define THERMAL 1
 #define POWERL  0
 #define KAPPAL  0
-#define NX  160
-#define NY  160
-#define THETAE_MIN 1e-3
-#define THETAE_MAX 1000.
-#define NPRIM	10 // 10 variables in hdf5 in fmks
-//#define NPRIM	8 //
 
-//chose integration scheme
-#define INT_FULL  1 //full integration step
-#define INT_SPLIT 0 //split: 1/2rot + ea + 1/2rot (from development version of ipole)
+//floor and ceiling of electron temperature, model dependent
+#define THETAE_MIN 1e-3
+#define THETAE_MAX 100.
+
+#define NPRIM	10 // 10 variables in hdf5 in fmks
+//#define NPRIM	8 // default
+
+//chose integration scheme in ipolarray.c
+#define INT_FULL  0 //full integration step
+#define INT_SPLIT 1 //split: 1/2rot + ea + 1/2rot (from development version of ipole)
 
 //colortheme for ppm files
-#define RAINBOW 1
-#define AFMHOT 0
+#define RAINBOW 0
+#define AFMHOT 1
 #define BW 0
 
-#define STRLEN (2048)
-#define NIMG (4) //just stokes here
+/********************** RATHER DO NOT CHANGE BELOW *************/
+
+#define MAXNSTEP        60000
+#define POLARIZATION_ON (1)
+
+/**************************** WARNING *************************/
+/********************** DO NOT CHANGE BELOW *******************/
+
 #define NDIM  4
 
 /* mnemonics for primitive vars; conserved vars */
@@ -69,7 +91,6 @@ extern double trat_j;
 extern double trat_d;
 extern double rmax;
 
-//2d
 extern double R0 ;
 extern double Rin ;
 extern double Rout ;
@@ -81,9 +102,10 @@ extern double gam,game,gamp ;
 extern double DTd;
 extern double t0;
 
+//additional parameter 
 extern double sigma_cut;
 
-//additional for fmks
+//additional global parameters for fmks
 extern double mks_smooth,poly_alpha,poly_norm,poly_xt;
 
 /* HARM model globals */
@@ -108,9 +130,15 @@ extern double ***b;
 
 
 
-
 double rhorizon_calc(int pos_sign);
 double risco_calc( int do_prograde );
+
+void linear_interp_I_Q_disk(double mu, double *f1, double *f2);
+void get_NT_S(double X[NDIM], double Kcon[NDIM], double F, double complex N_coord[NDIM][NDIM]);
+double get_NT_nu(double X[NDIM], double Kcon[NDIM]);
+double bnu(double nu, double T);
+double krolikc(double r, double a, double r_isco);
+double get_weight(double *xx, double x, int *jlo);
 
 /** model-independent subroutines **/
 /* core routines in main.c */
@@ -119,8 +147,11 @@ void null_normalize(double Kcon[NDIM], double fnorm) ;
 void normalize(double *vcon, double gcov[][NDIM]);
 double approximate_solve(double Ii, double ji, double ki, double jf, double kf, double dl) ;
 void get_jkinv(double X[NDIM], double Kcon[NDIM], double *jnuinv, double *knuinv,double col_v[NDIM]);
-int    stop_backward_integration(double X[NDIM], double Kcon[NDIM],double Xcam[NDIM]) ;
+int  stop_backward_integration(double X[NDIM], double Kcon[NDIM],double Xcam[NDIM]) ;
 void dump(double image[NX][NY],double imageS[NX][NY][NDIM], double col_var[NX][NY][3],char *fname, double scale) ;
+void make_txt(double image[NX][NY], double imageS[NX][NY][NDIM], double freqcgs, char *fname, double FOVX, double FOVY,double scale);
+double root_find2(double x[NDIM]);
+
 
 /* geodesic integration */
 void push_photon(double X[NDIM], double Kcon[NDIM], double dl, double Xhalf[NDIM],double Kconhalf[NDIM]);
@@ -136,7 +167,6 @@ void   get_connection(double *X, double lconn[][NDIM][NDIM]);
 void   get_connection_num(double *X, double lconn[][NDIM][NDIM]);
 
 void   lower(double *ucon, double Gcov[NDIM][NDIM], double *ucov);
-void   raise(double *ucov, double Gcon[NDIM][NDIM], double *ucon);
 double stepsize(double X[NDIM], double K[NDIM]);
 
 void init_model(char *args[]) ;
@@ -148,28 +178,17 @@ void get_model_bcov(double X[NDIM], double Bcov[NDIM]) ;
 void get_model_bcon(double X[NDIM], double Bcon[NDIM]) ;
 void get_model_ucov(double X[NDIM], double Ucov[NDIM]) ;
 void get_model_ucon(double X[NDIM], double Ucon[NDIM]) ;
-void update_data();
+
 /* harm utilities */
 /*
 void interp_fourv(double X[NDIM], double ***fourv, double Fourv[NDIM]) ;
 double interp_scalar(double X[NDIM], double **var) ;
 void Xtoij(double X[NDIM], int *i, int *j, double del[NDIM]) ;
 */
-void  bl_coord(double *X, double *r, double *th);
-//void coord(int i, int j, double *X) ;
-void set_units(char *instr) ;
-//for fast light
-void init_physical_quantities(void) ;
-//for slow light
-//void init_physical_quantities(int n) ;
 
-//for 3d coment out
-/*
-void *malloc_rank1(int n1, int size) ;
-void **malloc_rank2(int n1, int n2, int size) ;
-void ***malloc_rank3(int n1, int n2, int n3, int size) ;
-void ****malloc_rank4(int n1, int n2, int n3, int n4, int size) ;
-*/
+void  bl_coord(double *X, double *r, double *th);
+void set_units(char *instr) ;
+void init_physical_quantities(void) ;
 void init_storage(void) ;
 
 /* tetrad related */
