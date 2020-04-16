@@ -620,7 +620,7 @@ void set_units(char *munitstr)
     MBH = MABHB;
 #endif
 #if(SOURCE_NT)
-    MBH = 1;
+    MBH = 10;
 #endif
     
     sscanf(munitstr,"%lf",&M_unit) ;
@@ -641,9 +641,6 @@ void set_units(char *munitstr)
 }
 
 
-/* this is from illinois version that does not 
-need second derivative of theta, 
-works for funky cooridnates or whatever */
 double theta_func(double x[NDIM])
 {
     double r,th;
@@ -672,9 +669,8 @@ double root_find2(double X[NDIM])
         Xb[2] = 1. + SMALL;
     }
 
-    //tha = theta_func(Xa);                                                                                                                                          
     thb = theta_func(Xb);
-
+    
     /* bisect for a bit */
     double tol = 1.e-9;
     for (int i = 0; i < 1000; i++) {
