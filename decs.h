@@ -16,12 +16,14 @@
 
 
 //change to 1 when running Novikov-Thorne model
-#define NT_PROB 1
-//which source SGRA,M87,DABHB, or NT model
-#define SOURCE_SGRA 0
+#define NT_PROB 0
+#define SOURCE_NT 0
+
+//or which source SGRA,M87,DABHB, if NT model these all 0
+#define SOURCE_SGRA 1
 #define SOURCE_M87  0
 #define SOURCE_DABHB 0
-#define SOURCE_NT 1
+
 
 //image resolution
 #define NX  80
