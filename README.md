@@ -1,9 +1,8 @@
-THIS IS DEVELOPMENT VERSION. BETTER USE MASTER VERSION.
 
 
     Copyright 2017 Monika Moscibrodzka and Charles F. Gammie
 
-    ipole  version 1.0  (released December 4, 2017)
+    ipole  version 2.0  (released April, 2020)
 
     The files in this directory are part of ipole.  
     
@@ -19,8 +18,8 @@ THIS IS DEVELOPMENT VERSION. BETTER USE MASTER VERSION.
     scientific literature that results from use of any part of ipole:
 
     [1] Moscibrodzka, Monika, and Gammie, Charles F., Monthly Notices of 
-    the Royal Astronomical Society, Volume 475, Issue 1, p.43-54
-    https://ui.adsabs.harvard.edu/abs/2018MNRAS.475...43M/abstract
+        the Royal Astronomical Society, Volume 475, Issue 1, p.43-54
+    	https://ui.adsabs.harvard.edu/abs/2018MNRAS.475...43M/abstract
     
     [2] Noble, Scott C.; Leung, Po Kin; Gammie, Charles F.; Book, Laura G. 
         Classical and Quantum Gravity, Volume 24, Issue 12, pp. S259-S274 (2007)
