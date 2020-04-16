@@ -7,47 +7,32 @@
 	HARM model specification routines 
  */
 
-/* geometry used in this model*/
-
-
 /*
-
-
 	model-dependent geometry routines:
 	        risco_calc
 		rhorizon_calc
 		gcov
 		get_connection
-
-	    
 */
 
 
-//Kerr metric
+//Kerr metric only
 double risco_calc( int do_prograde )
 {
   double Z1,Z2,sign,term1,term2 ;
-
   sign = (do_prograde) ? 1. : -1. ;
-
   term1 = pow(1. + a,1./3.);
   term2 = pow(1. - a,1./3.);
-
   Z1 = 1. + term1*term2*(term1 + term2);
-
   Z2 = sqrt(3.*a*a + Z1*Z1) ;
-
   return( 3. + Z2-sign*sqrt((3. - Z1)*(3. + Z1 + 2.*Z2))  );
-
 }
 
-//Kerr metric
+//Kerr metric only
 double rhorizon_calc(int pos_sign)
 {
   double sign;
-
   sign = (pos_sign) ? 1. : -1.;
-
   return(1. + sign*sqrt((1.-a)*(1.+a)) );
 }
 
@@ -56,8 +41,8 @@ double rhorizon_calc(int pos_sign)
 #define MUNULOOP for(int mu=0;mu<NDIM;mu++) for(int nu=0;nu<NDIM;nu++)
 void set_dxdX(double X[NDIM], double dxdX[NDIM][NDIM])
 {
-    // Jacobian with respect to KS basis where X is given in
-    // non-KS basis
+  // Jacobian with respect to KS basis where X is given in
+  // non-KS basis
   MUNULOOP dxdX[mu][nu] = 0.;
 
   dxdX[0][0] = 1.;
@@ -149,19 +134,6 @@ void get_connection(double X[NDIM], double lconn[NDIM][NDIM][NDIM])
     get_connection_num(X,lconn);
 
 }
-
-
-/*
-double ****bcon;
-double ****bcov;
-double ****ucon;
-double ****ucov;
-double ****p;
-double ***ne;
-double ***uu;
-double ***thetae;
-double ***b;
-*/
 
 void interp_fourv(double X[NDIM], double ****fourv, double Fourv[NDIM]) ;
 double interp_scalar(double X[NDIM], double ***var) ;
@@ -557,7 +529,7 @@ void set_units(char *munitstr)
     MBH = MABHB;
 #endif
 #if(SOURCE_NT)
-    MBH = 1;
+    MBH = 10;
 #endif
   
   sscanf(munitstr,"%lf",&M_unit) ;
@@ -747,19 +719,6 @@ void init_storage(void)
 #include <hdf5.h>
 #include <hdf5_hl.h>
 
-/* Harm3d globals */
-/*
-extern double ****bcon;
-extern double ****bcov;
-extern double ****ucon;
-extern double ****ucov;
-extern double ****p;
-extern double ***ne;
-extern double ***uu;
-extern double ***thetae;
-extern double ***b;
-*/
-
 void init_harm3d_grid(char *fname)
 {
 	hid_t file_id;
@@ -876,10 +835,9 @@ void init_harm3d_data(char *fname)
     MBH = MABHB;
 #endif
 #if(SOURCE_NT)
-    MBH = 1;
+    MBH = 10;
 #endif
 	
-
 	MBH=MBH*MSUN;
         L_unit = GNEWT * MBH / (CL * CL);
         T_unit = L_unit / CL;
@@ -1109,15 +1067,13 @@ void init_harm3d_data(char *fname)
 }
 
 
-
-/* check this*/
-/* this is from illinois version that does not need second derivative of theta, works for funky cooridnates or whatever */
 double theta_func(double x[NDIM])
 {
     double r,th;
     bl_coord(x, &r, &th);
     return th;
 }
+
 double root_find2(double X[NDIM])
 {
     double th = X[2];
