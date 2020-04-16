@@ -1,26 +1,42 @@
 #include "decs.h"
+#include <string.h>
 
 /*
 
   first geometry used in the model and then 
 	HARM model specification routines 
+ */
+
+/* geometry used in this model*/
+
+
+/*
+
 
 	model-dependent geometry routines:
 	        risco_calc
 		rhorizon_calc
 		gcov
 		get_connection
+
+	    
 */
+
 
 //Kerr metric
 double risco_calc( int do_prograde )
 {
   double Z1,Z2,sign,term1,term2 ;
+
   sign = (do_prograde) ? 1. : -1. ;
+
   term1 = pow(1. + a,1./3.);
   term2 = pow(1. - a,1./3.);
+
   Z1 = 1. + term1*term2*(term1 + term2);
+
   Z2 = sqrt(3.*a*a + Z1*Z1) ;
+
   return( 3. + Z2-sign*sqrt((3. - Z1)*(3. + Z1 + 2.*Z2))  );
 
 }
@@ -29,26 +45,46 @@ double risco_calc( int do_prograde )
 double rhorizon_calc(int pos_sign)
 {
   double sign;
+
   sign = (pos_sign) ? 1. : -1.;
+
   return(1. + sign*sqrt((1.-a)*(1.+a)) );
 }
 
 //function from IL group, coefficents needed to set up metric corrections for modified coodtinates 
 //this seems correct
-
 #define MUNULOOP for(int mu=0;mu<NDIM;mu++) for(int nu=0;nu<NDIM;nu++)
 void set_dxdX(double X[NDIM], double dxdX[NDIM][NDIM])
 {
     // Jacobian with respect to KS basis where X is given in
     // non-KS basis
-    MUNULOOP dxdX[mu][nu] = 0.;
+  MUNULOOP dxdX[mu][nu] = 0.;
 
-    //traditional coordinates with cut and with hslope
-    dxdX[0][0] = 1.;
-    dxdX[1][1] = exp(X[1]);
-    dxdX[2][2] = M_PI + hslope*2*M_PI*cos(2*M_PI*X[2]); 
-    dxdX[3][3] = 1.;
-
+  dxdX[0][0] = 1.;
+  dxdX[1][1] = exp(X[1]);
+  dxdX[2][1] = -exp(mks_smooth * (startx[1] - X[1])) * mks_smooth
+      * (
+	  M_PI / 2. -
+	  M_PI * X[2]
+	  + poly_norm * (2. * X[2] - 1.)
+	  * (1
+	     + (pow((-1. + 2 * X[2]) / poly_xt, poly_alpha))
+	     / (1 + poly_alpha))
+	  - 1. / 2. * (1. - hslope) * sin(2. * M_PI * X[2]));
+  dxdX[2][2] = M_PI + (1. - hslope) * M_PI * cos(2. * M_PI * X[2])
+      + exp(mks_smooth * (startx[1] - X[1]))
+      * (-M_PI
+	 + 2. * poly_norm
+	 * (1.
+	    + pow((2. * X[2] - 1.) / poly_xt, poly_alpha)
+	    / (poly_alpha + 1.))
+	 + (2. * poly_alpha * poly_norm * (2. * X[2] - 1.)
+	    * pow((2. * X[2] - 1.) / poly_xt, poly_alpha - 1.))
+	 / ((1. + poly_alpha) * poly_xt)
+	 - (1. - hslope) * M_PI * cos(2. * M_PI * X[2]));
+  dxdX[3][3] = 1.;
+  
+  
 }
 
 
@@ -56,8 +92,7 @@ void set_dxdX(double X[NDIM], double dxdX[NDIM][NDIM])
    Current metric: modified Kerr-Schild, squashed in theta
    to give higher resolution at the equator 
 */
-
-//second part of the function is from IL group
+    
 void gcov_func(double *X, double gcov[][NDIM])
 {
 
@@ -72,8 +107,7 @@ void gcov_func(double *X, double gcov[][NDIM])
   sth = sin(th);
   s2 = sth * sth;
   rho2 = r * r + a * a * cth * cth;
-
-  //Kerr-Schield metric tensor
+  
   gcov_ks[0][0] = -1. + 2. * r / rho2 ;
   gcov_ks[0][1] = 2. * r / rho2 ;
   gcov_ks[0][3] = -2. * a * r * s2 / rho2;
@@ -84,6 +118,7 @@ void gcov_func(double *X, double gcov[][NDIM])
   gcov_ks[3][0] = gcov_ks[0][3];
   gcov_ks[3][1] = gcov_ks[1][3];
   gcov_ks[3][3] = s2 * (rho2 + a * a * s2 * (1. + 2. * r / rho2));
+
     
   // convert from ks metric to a modified one using Jacobian
   double dxdX[NDIM][NDIM];
@@ -107,169 +142,26 @@ void gcov_func(double *X, double gcov[][NDIM])
 }
 #undef MUNULOOP
 
-
-
-
-/* 
-
-   connection calculated analytically for modified Kerr-Schild
-	coordinates 
-   this gives the connection coefficient
-	\Gamma^{i}_{j,k} = conn[..][i][j][k]
-   where i = {1,2,3,4} corresponds to, e.g., {t,ln(r),theta,phi}
-
-*/
-
-
 void get_connection(double X[NDIM], double lconn[NDIM][NDIM][NDIM])
 {
-  
-    double r1,r2,r3,r4,sx,cx;
-    double th,dthdx2,dthdx22,d2thdx22,sth,cth,sth2,cth2,sth4,cth4,s2th,c2th;
-    double a2,a3,a4,rho2,irho2,rho22,irho22,rho23,irho23,irho23_dthdx2;
-    double fac1,fac1_rho23,fac2,fac3,a2cth2,a2sth2,r1sth2,a4cth4;
-	
-    r1 = exp(X[1]);
-    r2 = r1*r1;
-    r3 = r2*r1;
-    r4 = r3*r1;
-  
-    sx = sin(2.*M_PI*X[2]);
-    cx = cos(2.*M_PI*X[2]);
-  
-    /* HARM-2D MKS */
-    //th = M_PI*X[2] + 0.5*(1-hslope)*sx;
-    //dthdx2 = M_PI*(1.+(1-hslope)*cx);
-    //d2thdx22 = -2.*M_PI*M_PI*(1-hslope)*sx;
-  
-    /* HARM-3D MKS */
-    th =  M_PI*X[2] + hslope*sx;
-    dthdx2 = M_PI + 2.*M_PI*hslope*cx;
-    d2thdx22 = -4.*M_PI*M_PI*hslope*sx;	/* d^2(th)/dx2^2 */
 
-  
-    dthdx22 = dthdx2*dthdx2;
-	
-    sth = sin(th);
-    cth = cos(th);
-    sth2 = sth*sth;
-    r1sth2 = r1*sth2;
-    sth4 = sth2*sth2;
-    cth2 = cth*cth;
-    cth4 = cth2*cth2;
-    s2th = 2.*sth*cth;
-    c2th = 2*cth2 - 1.;
-    
-    a2 = a*a;
-    a2sth2 = a2*sth2;
-    a2cth2 = a2*cth2;
-    a3 = a2*a;
-    a4 = a3*a;
-    a4cth4 = a4*cth4;
-  
-    rho2 = r2 + a2cth2;
-    rho22 = rho2*rho2;
-    rho23 = rho22*rho2;
-    irho2 = 1./rho2;
-    irho22 = irho2*irho2;
-    irho23 = irho22*irho2;
-    irho23_dthdx2 = irho23/dthdx2;
-    
-    fac1 = r2 - a2cth2;
-    fac1_rho23 = fac1*irho23;
-    fac2 = a2 + 2*r2 + a2*c2th;
-    fac3 = a2 + r1*(-2. + r1);
-    
-    lconn[0][0][0] = 2.*r1*fac1_rho23;
-    lconn[0][0][1] = r1*(2.*r1+rho2)*fac1_rho23;
-    lconn[0][0][2] = -a2*r1*s2th*dthdx2*irho22;
-    lconn[0][0][3] = -2.*a*r1sth2*fac1_rho23;
-    
-    lconn[0][1][0] = lconn[0][0][1];
-    lconn[0][1][1] = 2.*r2*(r4 + r1*fac1 - a4cth4)*irho23;
-    lconn[0][1][2] = -a2*r2*s2th*dthdx2*irho22;
-    lconn[0][1][3] = a*r1*(-r1*(r3 + 2*fac1) + a4cth4)*sth2*irho23;
-  
-    lconn[0][2][0] = lconn[0][0][2];
-    lconn[0][2][1] = lconn[0][1][2];
-    lconn[0][2][2] = -2.*r2*dthdx22*irho2;
-    lconn[0][2][3] = a3*r1sth2*s2th*dthdx2*irho22;
+    //for these coordinates it is safer to go numerically
+    get_connection_num(X,lconn);
 
-    lconn[0][3][0] = lconn[0][0][3];
-    lconn[0][3][1] = lconn[0][1][3];
-    lconn[0][3][2] = lconn[0][2][3];
-    lconn[0][3][3] = 2.*r1sth2*(-r1*rho22 + a2sth2*fac1)*irho23;
-    
-    lconn[1][0][0] = fac3*fac1/(r1*rho23);
-    lconn[1][0][1] = fac1*(-2.*r1 + a2sth2)*irho23;
-    lconn[1][0][2] = 0.;
-    lconn[1][0][3] = -a*sth2*fac3*fac1/(r1*rho23);
-
-    lconn[1][1][0] = lconn[1][0][1];
-    lconn[1][1][1] = (r4*(-2. + r1)*(1. + r1) + a2*(a2*r1*(1. + 3.*r1)*cth4 + a4cth4*cth2 + r3*sth2 + r1*cth2*(2.*r1 + 3.*r3 - a2sth2)))*irho23;
-    lconn[1][1][2] = -a2*dthdx2*s2th/fac2;
-    lconn[1][1][3] = a*sth2*(a4*r1*cth4 + r2*(2*r1 + r3 - a2sth2) + a2cth2*(2.*r1*(-1. + r2) + a2sth2))*irho23;
-    
-    lconn[1][2][0] = lconn[1][0][2];
-    lconn[1][2][1] = lconn[1][1][2];
-    lconn[1][2][2] = -fac3*dthdx22*irho2;
-    lconn[1][2][3] = 0.;
-
-    lconn[1][3][0] = lconn[1][0][3];
-    lconn[1][3][1] = lconn[1][1][3];
-    lconn[1][3][2] = lconn[1][2][3];
-    lconn[1][3][3] = -fac3*sth2*(r1*rho22 - a2*fac1*sth2)/(r1*rho23);
-
-    lconn[2][0][0] = -a2*r1*s2th*irho23_dthdx2;
-    lconn[2][0][1] = r1*lconn[2][0][0];
-    lconn[2][0][2] = 0.;
-    lconn[2][0][3] = a*r1*(a2+r2)*s2th*irho23_dthdx2;
-
-    lconn[2][1][0] = lconn[2][0][1];
-    lconn[2][1][1] = r2*lconn[2][0][0];
-    lconn[2][1][2] = r2*irho2;
-    lconn[2][1][3] = (a*r1*cth*sth*(r3*(2. + r1) + a2*(2.*r1*(1. + r1)*cth2 + a2*cth4 + 2*r1sth2)))*irho23_dthdx2;
-    
-    lconn[2][2][0] = lconn[2][0][2];
-    lconn[2][2][1] = lconn[2][1][2];
-    lconn[2][2][2] = -a2*cth*sth*dthdx2*irho2 + d2thdx22/dthdx2;
-    lconn[2][2][3] = 0.;
-    
-    lconn[2][3][0] = lconn[2][0][3];
-    lconn[2][3][1] = lconn[2][1][3];
-    lconn[2][3][2] = lconn[2][2][3];
-    lconn[2][3][3] = -cth*sth*(rho23 + a2sth2*rho2*(r1*(4. + r1) + a2cth2) + 2.*r1*a4*sth4)*irho23_dthdx2;
-    
-    lconn[3][0][0] = a*fac1_rho23;
-    lconn[3][0][1] = r1*lconn[3][0][0];
-    lconn[3][0][2] = -2.*a*r1*cth*dthdx2/(sth*rho22);
-    lconn[3][0][3] = -a2sth2*fac1_rho23;
-
-    lconn[3][1][0] = lconn[3][0][1];
-    lconn[3][1][1] = a*r2*fac1_rho23;
-    lconn[3][1][2] = -2*a*r1*(a2 + 2*r1*(2. + r1) + a2*c2th)*cth*dthdx2/(sth*fac2*fac2);
-    lconn[3][1][3] = r1*(r1*rho22 - a2sth2*fac1)*irho23;
-    
-    lconn[3][2][0] = lconn[3][0][2];
-    lconn[3][2][1] = lconn[3][1][2];
-    lconn[3][2][2] = -a*r1*dthdx22*irho2;
-    lconn[3][2][3] = dthdx2*(0.25*fac2*fac2*cth/sth + a2*r1*s2th)*irho22;
-    
-    lconn[3][3][0] = lconn[3][0][3];
-    lconn[3][3][1] = lconn[3][1][3];
-    lconn[3][3][2] = lconn[3][2][3];
-    lconn[3][3][3] = (-a*r1sth2*rho22 + a3*sth4*fac1)*irho23;
-    
-	
 }
 
 
-
-
 /*
-	HARM model specification routines 
+double ****bcon;
+double ****bcov;
+double ****ucon;
+double ****ucov;
+double ****p;
+double ***ne;
+double ***uu;
+double ***thetae;
+double ***b;
 */
-
 
 void interp_fourv(double X[NDIM], double ****fourv, double Fourv[NDIM]) ;
 double interp_scalar(double X[NDIM], double ***var) ;
@@ -326,6 +218,9 @@ void get_model_ucov(double X[NDIM], double Ucov[NDIM])
 
 		return ;
 	}
+
+	//get_model_ucon(X, Ucon);
+	//lower(Ucon, gcov, Ucov);
 
 	interp_fourv(X, ucov, Ucov) ;
 
@@ -395,6 +290,10 @@ void get_model_bcov(double X[NDIM], double Bcov[NDIM])
 	interp_fourv(X, bcov, Bcov) ;
 }
 
+
+
+
+
 void get_model_bcon(double X[NDIM], double Bcon[NDIM])
 {
 	if(X[1] < startx[1] || 
@@ -452,6 +351,7 @@ double get_model_b(double X[NDIM])
 	return(interp_scalar(X, b)) ;
 }
 
+
 double get_model_ne(double X[NDIM])
 {
 	if(X[1] < startx[1] || 
@@ -483,13 +383,15 @@ void interp_fourv(double X[NDIM], double ****fourv, double Fourv[NDIM]){
 	/* find the current zone location and offsets del[0], del[1] */
 	Xtoijk(X, &i, &j, &k, del);
 
+	 // since we read from data, adjust i,j,k for ghost zones
+	i += 1;
+	j += 1;
+	k += 1;
+	
 	ip1 = i + 1;
 	jp1 = j + 1;
 	kp1 = k + 1;
 	
-	//conditions at the x3 periodic boundary (at the last active zone)
-	if(k==(N3-1)) kp1=0;   
-
 	b1 = 1.-del[1];
 	b2 = 1.-del[2];
 	b3 = 1.-del[3];
@@ -510,8 +412,8 @@ void interp_fourv(double X[NDIM], double ****fourv, double Fourv[NDIM]){
 	Fourv[1] = b3*Fourv[1] + del[3]*(d1*fourv[i][j][kp1][1] + d2*fourv[i][jp1][kp1][1] + d3*fourv[ip1][j][kp1][1] + d4*fourv[ip1][jp1][kp1][1]);
 	Fourv[2] = b3*Fourv[2] + del[3]*(d1*fourv[i][j][kp1][2] + d2*fourv[i][jp1][kp1][2] + d3*fourv[ip1][j][kp1][2] + d4*fourv[ip1][jp1][kp1][2]);
 	Fourv[3] = b3*Fourv[3] + del[3]*(d1*fourv[i][j][kp1][3] + d2*fourv[i][jp1][kp1][3] + d3*fourv[ip1][j][kp1][3] + d4*fourv[ip1][jp1][kp1][3]);
-
 	//new
+
 	//no interpolation of vectors at all
 	/*
 	Fourv[0]=fourv[i][j][k][0];
@@ -519,7 +421,6 @@ void interp_fourv(double X[NDIM], double ****fourv, double Fourv[NDIM]){
 	Fourv[2]=fourv[i][j][k][2];
 	Fourv[3]=fourv[i][j][k][3];
 	*/
-
 }
 
 /* return	 scalar in cgs units */
@@ -531,10 +432,14 @@ double interp_scalar(double X[NDIM], double ***var)
 	/* find the current zone location and offsets del[0], del[1] */
 	Xtoijk(X, &i, &j, &k, del);
 
+	// since we read from data, adjust i,j,k for ghost zones
+	i += 1;
+	j += 1;
+	k += 1;
+
 	ip1 = i+1;
 	jp1 = j+1;
 	kp1 = k+1;
-	if(k==(N3-1)) kp1=0;   	
 
 	b1 = 1.-del[1];
 	b2 = 1.-del[2];
@@ -555,9 +460,11 @@ double interp_scalar(double X[NDIM], double ***var)
 		  var[ip1][j  ][kp1]*del[1]*b2 +
 		  var[ip1][jp1][kp1]*del[1]*del[2]);
 	
-	//new, no interpolations whatsoever
+	//new, no interpolations what so ever
 	//interp=var[i][j][k];
-
+	/* use bilinear interpolation to find rho; piecewise constant
+	   near the boundaries */
+	
 	return(interp);
 
 }
@@ -568,68 +475,58 @@ double interp_scalar(double X[NDIM], double ***var)
 
  ***********************************************************************************/
 
-//check if this include the cuts
+
 void Xtoijk(double X[NDIM], int *i, int *j, int *k, double del[NDIM])
 {
   double phi;
 
-	/* Map X[3] into sim range, assume startx[3] = 0 */
-	phi = fmod(X[3], stopx[3]);
-	//fold it to be positive and find index
-	if(phi < 0.0) phi = stopx[3]+phi;
-	
-	//give index of a zone - zone index is moved to the grid zone center/
-	//to account for the fact that all variables are reconstrucuted at zone centers?
-	*i = (int) ((X[1] - startx[1]) / dx[1] - 0.5 + 1000) - 1000;
-	*j = (int) ((X[2] - startx[2]) / dx[2] - 0.5 + 1000) - 1000;
-	*k = (int) ((phi  - startx[3]) / dx[3] - 0.5 + 1000) - 1000;	
+  phi = fmod(X[3], stopx[3]);
+  if(phi < 0.0) phi = stopx[3]+phi;
 
-	//this makes sense, interpolate with outflow condition
-	if(*i < 0) {
-	  *i = 0 ;
-	  del[1] = 0. ;
-	}
-	else if(*i > N1-2) { //OK because del[1]=1 and only terms with ip1=N1-1 will be important in interpolation
-	  *i = N1-2 ;
-	  del[1] = 1. ;
-	}
-	else {
-	  del[1] = (X[1] - ((*i + 0.5) * dx[1] + startx[1])) / dx[1];
-	}
-	
-	if(*j < 0) {
-          *j = 0 ;
-          del[2] = 0. ;
-        }
-        else if(*j > N2-2) {
-          *j = N2-2 ;
-          del[2] = 1. ;
-        }
-        else {
-          del[2] = (X[2] - ((*j + 0.5) * dx[2] + startx[2])) / dx[2];
-        }
+  // get provisional zone index. see note above function for details. note we
+  // shift to zone centers because that's where variables are most exact.
+  *i = (int) ((X[1] - startx[1]) / dx[1] - 0.5 + 1000) - 1000;
+  *j = (int) ((X[2] - startx[2]) / dx[2] - 0.5 + 1000) - 1000;
+  *k = (int) ((phi  - startx[3]) / dx[3] - 0.5 + 1000) - 1000;
 
-        if(*k < 0) {
-          *k = 0 ;
-          del[3] = 0. ;
-        }
-        else if(*k > N3-1) {
-          *k = N3-1;
-          del[3] = 1. ;
-        }
-        else {
-          del[3] = (phi - ((*k + 0.5) * dx[3] + startx[3])) / dx[3];
-        }
+  // exotic coordinate systems sometime have issues. use this block to enforce
+  // reasonable limits on *i,*j and *k. in the normal coordinate systems, this
+  // block should never fire.
+  if (*i < -1) *i = -1;
+  if (*j < -1) *j = -1;
+  if (*k < -1) *k = -1;
+  if (*i >= N1) *i = N1-1;
+  if (*j >= N2) *j = N2-1;
+  if (*k >= N3) *k = N3-1;
 
+  // now construct del
+  del[1] = (X[1] - ((*i + 0.5) * dx[1] + startx[1])) / dx[1];
+  del[2] = (X[2] - ((*j + 0.5) * dx[2] + startx[2])) / dx[2];
+  del[3] = (phi - ((*k + 0.5) * dx[3] + startx[3])) / dx[3];
+
+  // and enforce limits on del (for exotic coordinate systems)
+  for (int i=0; i<4; ++i) {
+    if (del[i] < 0.) del[i] = 0.;
+    if (del[i] >= 1.) del[i] = 1.;
+  }
+	  
 	return;
 }
 
+//#define SINGSMALL (1.E-20)
 /* return boyer-lindquist coordinate of point */
 void bl_coord(double *X, double *r, double *th)
 {
-	*r = exp(X[1]) + R0 ;
-	*th = M_PI * X[2] + hslope*sin(2. * M_PI * X[2]);
-	return;
+
+     *r = exp(X[1])  ;
+
+     double thG = M_PI * X[2] + ((1. - hslope) / 2.) * sin(2. * M_PI * X[2]);
+     double y = 2 * X[2] - 1.;
+     double thJ = poly_norm * y
+	 * (1. + pow(y / poly_xt, poly_alpha) / (poly_alpha + 1.)) + 0.5 * M_PI;
+     *th = thG + exp(mks_smooth * (startx[1] - X[1])) * (thJ - thG);
+        
+     return;
 }
 
 void coord(int i, int j, int k, double *X)
@@ -645,10 +542,10 @@ void coord(int i, int j, int k, double *X)
 }
 
 
-//this is set in decs.h
 void set_units(char *munitstr)
 {
-	double MBH ;
+
+  double MBH ;
 
 #if(SOURCE_SGRA)
     MBH = MSGRA;
@@ -662,21 +559,22 @@ void set_units(char *munitstr)
 #if(SOURCE_NT)
     MBH = 1;
 #endif
+  
+  sscanf(munitstr,"%lf",&M_unit) ;
+  
+  MBH *= MSUN ;
+  
+  /** from this, calculate units of length, time, mass,
+      and derivative units **/
+  L_unit = GNEWT * MBH / (CL * CL);
+  T_unit = L_unit / CL;
+  RHO_unit = M_unit / pow(L_unit, 3);
+  U_unit = RHO_unit * CL * CL;
+  B_unit = CL * sqrt(4.*M_PI*RHO_unit);
+  
+  fprintf(stderr,"L,T,M units: %g [cm] %g [sec] %g [g]\n",L_unit,T_unit,M_unit) ;
+  fprintf(stderr,"rho,u,B units: %g [g cm^-3] %g [g cm^-1 sec^-2] %g [G] \n",RHO_unit,U_unit,B_unit) ;
 
-	sscanf(munitstr,"%lf",&M_unit) ;
-
-	MBH *= MSUN ;
-
-	/** from this, calculate units of length, time, mass,
-	    and derivative units **/
-	L_unit = GNEWT * MBH / (CL * CL);
-	T_unit = L_unit / CL;
-	RHO_unit = M_unit / pow(L_unit, 3);
-	U_unit = RHO_unit * CL * CL;
-	B_unit = CL * sqrt(4.*M_PI*RHO_unit);
-
-	fprintf(stderr,"L,T,M units: %g [cm] %g [sec] %g [g]\n",L_unit,T_unit,M_unit) ;
-	fprintf(stderr,"rho,u,B units: %g [g cm^-3] %g [g cm^-1 sec^-2] %g [G] \n",RHO_unit,U_unit,B_unit) ;
 }
 
 
@@ -684,74 +582,40 @@ void set_units(char *munitstr)
 void init_physical_quantities(void)
 {
 	int i, j, k;
-        double bsq,Thetae_unit,sigma_m,beta,b2,trat;
-	//	double game,gamp,ue,Te,Tp;
-	double r,th,X[NDIM];
-	
-	for (i = 0; i < N1; i++) {
-	  X[1] = startx[1] + ( i + 0.5)*dx[1];
-	  for (j = 0; j < N2; j++) {
-	    X[2] = startx[2] + (j+0.5)*dx[2];
-	    bl_coord(X, &r, &th);
+        double bsq,Thetae_unit,beta,b2,trat,sigma_m;
 
-	    for (k = 0; k < N3; k++) {
+	//all zones: active+ghost
+	for (i = 0; i < N1+2; i++) {
+	  for (j = 0; j < N2+2; j++) {
+	    for (k = 0; k < N3+2; k++) {
 	      
 	      uu[i][j][k] = p[UU][i][j][k];
-
 	      bsq= bcon[i][j][k][0] * bcov[i][j][k][0] +
 		bcon[i][j][k][1] * bcov[i][j][k][1] +
 		bcon[i][j][k][2] * bcov[i][j][k][2] +
 		bcon[i][j][k][3] * bcov[i][j][k][3] ;
 	      b[i][j][k] = sqrt(bsq)*B_unit ;
 	      sigma_m=bsq/p[KRHO][i][j][k] ;
-
-	      /* isothermal jet Moscibrodzka Falcke 2013, Moscibrodzka+2014*/
-	      /*
-		double Be = -(1.+ p[UU][i][j][k]/p[KRHO][i][j][k]*gam)*ucov[i][j][k][0];
-		if(Be>=1.02) thetae[i][j][k] = 20.;
-	      */
-
-	      /* beta presciption Moscibrodzka et al. 2016, 2017*/
 	      beta=p[UU][i][j][k]*(gam-1.)/0.5/bsq;
-	      b2=pow(beta,2);
+	      b2=beta*beta;
 	      trat = trat_d * b2/(1. + b2) + trat_j /(1. + b2);
-//	      Thetae_unit= (MP / ME) * 2./(2.+trat) * (gam-1.);
-	      Thetae_unit = (gam - 1.) * (MP / ME) / trat;
+	      Thetae_unit = (MP/ME) * (game-1.) * (gamp-1.) / ( (gamp-1.) + (game-1.)*trat );
 	      thetae[i][j][k] = (p[UU][i][j][k]/p[KRHO][i][j][k])* Thetae_unit;
-
-	      /* in case electron temperatures are available in grmhd file*/
-	      /*
-	      game=4./3.;
-	      gamp=5./3.;
-	      Te=pow(p[KRHO][i][j][k],game-1)*p[KEL][i][j][k];
-	      ue=Te/(game-1)*p[KRHO][i][j][k];
-	      Tp=(gamp-1)*(p[UU][i][j][k]-ue)/p[KRHO][i][j][k];
-	      thetae[i][j][k]=(MP/ME)*Te;
-	      */
-
-	      /* floor and ceiling on temp */
-	      //thetae[i][j][k]=MAX(thetae[i][j][k],THETAE_MIN);
-	      //thetae[i][j][k]=MIN(thetae[i][j][k],THETAE_MAX);
-
-	      //opttional
+	      thetae[i][j][k] = MAX(thetae[i][j][k], THETAE_MIN);
 	      ne[i][j][k] = p[KRHO][i][j][k] * RHO_unit/(MP+ME) ;
-	      if(thetae[i][j][k] > 100.0) ne[i][j][k]=0.0;
-
-	      //apply sigma cut
+	      	      
 	      if(sigma_m > sigma_cut) {
-		  ne[i][j][k]=0.0;
-		  thetae[i][j][k]=0.0;
-		  b[i][j][k]=0.0;
+		ne[i][j][k]=0.0;
+		thetae[i][j][k]=0.0;
+		b[i][j][k]=0.0;
 	      }
+	      
 	      
 	      
 	    }
 	  }
 	}
-
-
-
-
+	
 	return ;
 }
 
@@ -862,30 +726,44 @@ void init_storage(void)
 {
 	int i;
 
-	bcon = malloc_rank4(N1,N2,N3,NDIM);
-	bcov = malloc_rank4(N1,N2,N3,NDIM);
-	ucon = malloc_rank4(N1,N2,N3,NDIM);
-	ucov = malloc_rank4(N1,N2,N3,NDIM);
+	bcon = malloc_rank4(N1+2,N2+2,N3+2,NDIM);
+	bcov = malloc_rank4(N1+2,N2+2,N3+2,NDIM);
+	ucon = malloc_rank4(N1+2,N2+2,N3+2,NDIM);
+	ucov = malloc_rank4(N1+2,N2+2,N3+2,NDIM);
 	p = (double ****)malloc_rank1(NPRIM,sizeof(double *));
-	for(i = 0; i < NPRIM; i++) p[i] = malloc_rank3(N1,N2,N3);
-	ne = malloc_rank3(N1,N2,N3);
-	uu = malloc_rank3(N1,N2,N3);
-	thetae = malloc_rank3(N1,N2,N3);
-	b = malloc_rank3(N1,N2,N3);
+	for(i = 0; i < NPRIM; i++) p[i] = malloc_rank3(N1+2,N2+2,N3+2);
+	ne = malloc_rank3(N1+2,N2+2,N3+2);
+	uu = malloc_rank3(N1+2,N2+2,N3+2);
+	thetae = malloc_rank3(N1+2,N2+2,N3+2);
+	b = malloc_rank3(N1+2,N2+2,N3+2);
 
 	return;
 }
 
 /* HDF5 v1.6 API */
 //#include <H5LT.h>
+
 /* HDF5 v1.8 API */
 #include <hdf5.h>
 #include <hdf5_hl.h>
 
+/* Harm3d globals */
+/*
+extern double ****bcon;
+extern double ****bcov;
+extern double ****ucon;
+extern double ****ucov;
+extern double ****p;
+extern double ***ne;
+extern double ***uu;
+extern double ***thetae;
+extern double ***b;
+*/
+
 void init_harm3d_grid(char *fname)
 {
 	hid_t file_id;
-	double th_end,th_cutout,t;
+	double th_cutout,t;
 
 	file_id = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT);
 	if(file_id < 0){
@@ -893,41 +771,53 @@ void init_harm3d_grid(char *fname)
 		exit(1234);
 	}
 
-	H5LTread_dataset_double(file_id,		"/Header/Grid/t", 	&t);
-	H5LTread_dataset_int(file_id,		"/Header/Grid/totalsize1", 	&N1);
-	H5LTread_dataset_int(file_id,		"/Header/Grid/totalsize2", 	&N2);
-	H5LTread_dataset_int(file_id,		"/Header/Grid/totalsize3", 	&N3);
-	H5LTread_dataset_double(file_id, 	"/Header/Grid/dx1", 		&(dx[1]));
-	H5LTread_dataset_double(file_id, 	"/Header/Grid/dx2", 		&(dx[2]));
-	H5LTread_dataset_double(file_id, 	"/Header/Grid/dx3", 		&(dx[3]));
-	H5LTread_dataset_double(file_id, 	"/Header/Grid/startx0", 	&(startx[0]));
-	H5LTread_dataset_double(file_id, 	"/Header/Grid/startx1", 	&(startx[1]));
-	H5LTread_dataset_double(file_id, 	"/Header/Grid/startx2", 	&(startx[2]));
-	H5LTread_dataset_double(file_id, 	"/Header/Grid/startx3", 	&(startx[3]));
-	H5LTread_dataset_double(file_id, 	"/Header/Grid/a",		&a);
-	H5LTread_dataset_double(file_id,	"/Header/Grid/gam",		&gam);
-	H5LTread_dataset_double(file_id,	"/Header/Grid/R0",		&R0);
-	H5LTread_dataset_double(file_id,	"/Header/Grid/Rin",		&Rin);
-	H5LTread_dataset_double(file_id, 	"/Header/Grid/Rout",		&Rout);
-	H5LTread_dataset_double(file_id, 	"/Header/Grid/h_slope",		&hslope);
-	H5LTread_dataset_double(file_id,	"/Header/Grid/th_cutout",  	&th_cutout);
+	H5LTread_dataset_int(file_id,		"/header/n1", 	&N1);
+	H5LTread_dataset_int(file_id,		"/header/n2", 	&N2);
+	H5LTread_dataset_int(file_id,		"/header/n3", 	&N3);
+	H5LTread_dataset_double(file_id,	"/header/gam",		&gam);
+	H5LTread_dataset_double(file_id,	"/header/gam_e",		&game);
+	H5LTread_dataset_double(file_id,	"/header/gam_p",		&gamp);		
+	H5LTread_dataset_double(file_id, 	"/header/geom/startx1", 	&(startx[1]));
+	H5LTread_dataset_double(file_id, 	"/header/geom/startx2", 	&(startx[2]));
+	H5LTread_dataset_double(file_id, 	"/header/geom/startx3", 	&(startx[3]));
+	H5LTread_dataset_double(file_id, 	"/header/geom/dx1", 		&(dx[1]));
+	H5LTread_dataset_double(file_id, 	"/header/geom/dx2", 		&(dx[2]));
+	H5LTread_dataset_double(file_id, 	"/header/geom/dx3", 		&(dx[3]));
 
-	/* Account for 3 ghost zones */
-	startx[1] += 3*dx[1];
-	startx[2] += 3*dx[2];
-        startx[3] += 3*dx[3];
+      
 
+	H5LTread_dataset_double(file_id, 	"/header/geom/mmks/a",		&a);
+	//mads
+	//H5LTread_dataset_double(file_id,	"/header/geom/mmks/r_in",	&Rin);
+	//H5LTread_dataset_double(file_id, 	"/header/geom/mmks/r_out",	&Rout);
+	//sane
+	//H5LTread_dataset_double(file_id,	"/header/geom/mmks/Rin",	&Rin);
+	//H5LTread_dataset_double(file_id, 	"/header/geom/mmks/Rout",	&Rout);
+	H5LTread_dataset_double(file_id, 	"/header/geom/mmks/hslope",	&hslope);	
+	/*additional parameter that describe theta*/
+	/* mks_smooth,poly_alpha,poly_xt */
+	H5LTread_dataset_double(file_id, 	"/header/geom/mmks/mks_smooth",	&mks_smooth);
+	H5LTread_dataset_double(file_id, 	"/header/geom/mmks/poly_alpha",	&poly_alpha);
+	H5LTread_dataset_double(file_id, 	"/header/geom/mmks/poly_xt",	&poly_xt);	
+	poly_norm = 0.5*M_PI*1./(1. + 1./(poly_alpha + 1.)*1./pow(poly_xt, poly_alpha));
+	
+
+	/* for test 
+	    H5LTread_dataset_double(file_id, 	"/header/geom/mks/a",		&a);	
+	    H5LTread_dataset_double(file_id,	"/header/geom/mks/r_in",	&Rin);
+	    H5LTread_dataset_double(file_id, 	"/header/geom/mks/r_out",	&Rout);
+	    H5LTread_dataset_double(file_id, 	"/header/geom/mks/hslope",	&hslope);
+	*/
+	
 	stopx[0] = 1.;
 	stopx[1] = startx[1]+N1*dx[1];
 	stopx[2] = startx[2]+N2*dx[2];
 	stopx[3] = startx[3]+N3*dx[3];
 
-	th_beg=th_cutout;
-	th_end=M_PI-th_cutout;
-	th_len = th_end-th_beg;
+	th_beg = 0.0174;
 	
-	fprintf(stdout,"size: %d %d %d t= %g M\n",N1,N2,N3, t);
-	fprintf(stdout,"---> a,R0 %g %g \n",a,R0);
+	fprintf(stdout,"size: %d %d %d M  gam=%g game=%g gamp=%g t=%g M mks_smooth=%g\n",N1,N2,N3,gam,game,gamp,t,mks_smooth);
+	fprintf(stdout,"---> a=%g Rout=%g hslope=%g \n",a,Rout,hslope);
 	fprintf(stdout,"start: %g %g %g \n",startx[1],startx[2],startx[3]);
 	fprintf(stdout,"th_cutout: %g  %d x %d x %d\n",th_cutout,N1,N2,N3);
 	fprintf(stdout,"stop: %g %g %g \n",stopx[1],stopx[2],stopx[3]);
@@ -936,18 +826,45 @@ void init_harm3d_grid(char *fname)
 	H5Fclose(file_id);
 }
 
+int hdf5_read_array(void *data, const char *name, size_t rank,
+		    hsize_t *fdims, hsize_t *fstart, hsize_t *fcount, hsize_t *mdims, hsize_t *mstart, hsize_t hdf5_type, char *fname)
+{
+
+    hid_t filespace = H5Screate_simple(rank, fdims, NULL);
+    H5Sselect_hyperslab(filespace, H5S_SELECT_SET, fstart, NULL, fcount,NULL);
+    hid_t memspace = H5Screate_simple(rank, mdims, NULL);
+    H5Sselect_hyperslab(memspace, H5S_SELECT_SET, mstart, NULL, fcount,NULL);
+
+    hid_t file_id ;
+
+    file_id = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT);
+
+    //for test
+    //file_id = H5Fopen("SANE_a+0.94_288_0900_MKS.h5", H5F_ACC_RDONLY, H5P_DEFAULT);
+    
+    
+    hid_t dset_id = H5Dopen(file_id, "prims"); //1.6 vs 1.8
+    hid_t plist_id = H5Pcreate(H5P_DATASET_XFER);
+    herr_t err = H5Dread(dset_id, hdf5_type, memspace, filespace, plist_id, data);
+
+    H5Dclose(dset_id);
+    H5Pclose(plist_id);
+    H5Sclose(filespace);
+    H5Sclose(memspace);
+    
+  return 0;
+}
 void init_harm3d_data(char *fname)
 {
-	hid_t file_id;
+
 	int i,j,k,l,m;
 	double X[NDIM],UdotU,ufac,udotB;
 	double gcov[NDIM][NDIM],gcon[NDIM][NDIM], g;
 	double dMact, Ladv, MBH;
 	double r,th;
 	FILE *fp;
-	double BSQ,Trphi,dotJ;
-	int dotJ_count;
-
+	//double BSQ,Trphi,dotJ;
+	//int dotJ_count;
 
 #if(SOURCE_SGRA)
     MBH = MSGRA;
@@ -961,31 +878,46 @@ void init_harm3d_data(char *fname)
 #if(SOURCE_NT)
     MBH = 1;
 #endif
+	
 
 	MBH=MBH*MSUN;
         L_unit = GNEWT * MBH / (CL * CL);
         T_unit = L_unit / CL;
-	
+
+	hid_t file_id;
 	file_id = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT);
 	if(file_id < 0){
 		fprintf(stderr,"file %s does not exist, aborting...\n",fname);
 		exit(12345);
 	}
 
-	H5LTread_dataset_double(file_id, "rho",	&(p[KRHO][0][0][0]));
-	H5LTread_dataset_double(file_id, "uu",	&(p[UU][0][0][0]));
-	H5LTread_dataset_double(file_id, "v1",	&(p[U1][0][0][0]));
-	H5LTread_dataset_double(file_id, "v2",	&(p[U2][0][0][0]));
-	H5LTread_dataset_double(file_id, "v3",	&(p[U3][0][0][0]));
-	H5LTread_dataset_double(file_id, "B1",	&(p[B1][0][0][0]));
-	H5LTread_dataset_double(file_id, "B2",	&(p[B2][0][0][0]));
-	H5LTread_dataset_double(file_id, "B3",	&(p[B3][0][0][0]));
 
-	//in case if electron temperature is available in the grmhd file
-	/*
-	H5LTread_dataset_double(file_id, "KEL",	&(p[KEL][0][0][0]));
-	H5LTread_dataset_double(file_id, "KTOT",&(p[KTOT][0][0][0]));
-	*/
+       	fprintf(stderr,"data incoming...from --------> %s \n",fname);
+	
+	int n_prims;
+	H5LTread_dataset_int(file_id,        "/header/n_prim",        &n_prims);
+	hsize_t fdims[] = { N1, N2, N3, n_prims };
+	hsize_t fstart[] = { 0, 0, 0, 0 };
+	hsize_t fcount[] = { N1, N2, N3, 1 };
+	hsize_t mdims[] = { N1+2, N2+2, N3+2, 1 };
+	hsize_t mstart[] = { 1, 1, 1, 0 };
+	 
+	fstart[3] = 0;
+	hdf5_read_array(p[KRHO][0][0], "prims", 4, fdims, fstart, fcount, mdims, mstart, H5T_IEEE_F64LE,fname);
+	fstart[3] = 1;
+	hdf5_read_array(p[UU][0][0], "prims", 4, fdims, fstart, fcount, mdims, mstart, H5T_IEEE_F64LE,fname);
+	fstart[3] = 2;
+	hdf5_read_array(p[U1][0][0], "prims", 4, fdims, fstart, fcount, mdims, mstart, H5T_IEEE_F64LE,fname);
+	fstart[3] = 3;
+	hdf5_read_array(p[U2][0][0], "prims", 4, fdims, fstart, fcount, mdims, mstart, H5T_IEEE_F64LE,fname);
+	fstart[3] = 4;
+	hdf5_read_array(p[U3][0][0], "prims", 4, fdims, fstart, fcount, mdims, mstart, H5T_IEEE_F64LE,fname);
+	fstart[3] = 5;
+	hdf5_read_array(p[B1][0][0], "prims", 4, fdims, fstart, fcount, mdims, mstart, H5T_IEEE_F64LE,fname);
+	fstart[3] = 6;
+	hdf5_read_array(p[B2][0][0], "prims", 4, fdims, fstart, fcount, mdims, mstart, H5T_IEEE_F64LE,fname);
+	fstart[3] = 7;
+	hdf5_read_array(p[B3][0][0], "prims", 4, fdims, fstart, fcount, mdims, mstart, H5T_IEEE_F64LE,fname); 
 
 	H5Fclose(file_id);
 	X[0] = 0.;
@@ -993,24 +925,22 @@ void init_harm3d_data(char *fname)
 
 	//fprintf(stderr,"reconstructing 4-vectors...\n");
 	dMact = Ladv = 0.;
-	dotJ=0.0;
+	//dotJ=0.0;
 	
-	//reconstruction of variables at the zone center!
-	for(i = 0; i < N1; i++){
-	  X[1] = startx[1] + ( i + 0.5)*dx[1];
-	  for(j = 0; j < N2; j++){
-	    X[2] = startx[2] + (j+0.5)*dx[2];
+	//reconstruction of variables at the zone center! here ghost zone in primitive read in from the file, they are zero anyway, i think
+	//in active zones
+	for(i = 1; i < N1+1; i++){
+	  for(j = 1; j < N2+1; j++){
+	    coord(i-1,j-1,0,X); //shift for ghost zones?
 	    gcov_func(X, gcov); // in system with cut off
 	    gcon_func(gcov, gcon);
 	    g = gdet_func(gcov);
 	    bl_coord(X, &r, &th);
-
-	    for(k = 0; k < N3; k++){
-	      UdotU = 0.;
-	      X[3] = startx[3] + (k+0.5)*dx[3];
-	      
+	    for(k = 1; k < N3+1; k++){
+	      coord(i-1,j-1,k,X);
 	      //the four-vector reconstruction should have gcov and gcon and gdet using the modified coordinates
 	      //interpolating the four vectors to the zone center !!!!
+	      UdotU = 0.;
 	      for(l = 1; l < NDIM; l++) for(m = 1; m < NDIM; m++) UdotU += gcov[l][m]*p[U1+l-1][i][j][k]*p[U1+m-1][i][j][k];
 	      ufac = sqrt(-1./gcon[0][0]*(1 + fabs(UdotU)));
 	      ucon[i][j][k][0] = -ufac*gcon[0][0];
@@ -1024,8 +954,8 @@ void init_harm3d_data(char *fname)
 	      for(l = 1; l < NDIM; l++) bcon[i][j][k][l] = (p[B1+l-1][i][j][k] + ucon[i][j][k][l]*udotB)/ucon[i][j][k][0];
 	      lower(bcon[i][j][k], gcov, bcov[i][j][k]);
 
-	      if(i <= 20) dMact += g * p[KRHO][i][j][k] * ucon[i][j][k][1] ;
-	      if(i >= 20 && i < 40) Ladv += g * p[UU][i][j][k] * ucon[i][j][k][1] * ucov[i][j][k][0] ;
+	      if(i <= 21) dMact += g * p[KRHO][i][j][k] * ucon[i][j][k][1] ;
+	      if(i >= 20 && i < 40 ) Ladv += g * p[UU][i][j][k] * ucon[i][j][k][1] * ucov[i][j][k][0] ;
 
 	      //compute dimentionless T^r_phi over phi and theta
 	      /*
@@ -1043,12 +973,117 @@ void init_harm3d_data(char *fname)
 	  }
 	}
 
+
+	//for r outflow
+	for(j = 1; j < N2+1; ++j){
+	  for(k = 1; k < N3+1; ++k){
+
+	    for(l = 0; l < NDIM; ++l){
+	      bcon[0   ][j][k][l] = bcon[1 ][j][k][l];
+	      bcon[N1+1][j][k][l] = bcon[N1][j][1][l];
+
+	      bcov[0   ][j][k][l] = bcov[1 ][j][k][l];
+	      bcov[N1+1][j][k][l] = bcov[N1][j][1][l];
+
+	      ucon[0   ][j][k][l] = ucon[1 ][j][k][l];
+	      ucon[N1+1][j][k][l] = ucon[N1][j][1][l];
+
+	      ucov[0   ][j][k][l] = ucov[1 ][j][k][l];
+	      ucov[N1+1][j][k][l] = ucov[N1][j][1][l];
+	    }
+	    //prim
+	    for(l = 0; l < NPRIM; ++l){
+	      p[l][0   ][j][k]=p[l][1 ][j][k];
+	      p[l][N1+1][j][k]=p[l][N1][j][k];
+	    }
+	    
+	    
+	  }
+	}
+
+	 // elevation -- flip (this is a rotation by pi)
+
+	for (i=0; i<N1+2; ++i) {
+	  for (k=1; k<N3+1; ++k) {
+	    if (N3%2 == 0) {
+	      int kflip = ( k + (N3/2) ) % N3;
+	      for (l=0; l<NDIM; ++l) {
+		bcon[i][0][k][l] = bcon[i][1][kflip][l];
+		bcon[i][N2+1][k][l] = bcon[i][N2][kflip][l];
+		bcov[i][0][k][l] = bcov[i][1][kflip][l];
+		bcov[i][N2+1][k][l] = bcov[i][N2][kflip][l];
+		ucon[i][0][k][l] = ucon[i][1][kflip][l];
+		ucon[i][N2+1][k][l] = ucon[i][N2][kflip][l];
+		ucov[i][0][k][l] = ucov[i][1][kflip][l];
+		ucov[i][N2+1][k][l] = ucov[i][N2][kflip][l];
+	      }
+	      for (l=0; l<NPRIM; ++l) {
+		p[l][i][0][k] = p[l][i][1][kflip];
+		p[l][i][N2+1][k] = p[l][i][N2][kflip];
+	      }
+	    } else {
+	      int kflip1 = ( k + (N3/2) ) % N3;
+	      int kflip2 = ( k + (N3/2) + 1 ) % N3;
+	      for (l=0; l<NDIM; ++l) {
+		bcon[i][0][k][l]    = ( bcon[i][1][kflip1][l] 
+					+ bcon[i][1][kflip2][l] ) / 2.;
+		bcon[i][N2+1][k][l] = ( bcon[i][N2][kflip1][l]
+					+ bcon[i][N2][kflip2][l] ) / 2.;
+		bcov[i][0][k][l]    = ( bcov[i][1][kflip1][l]
+					+ bcov[i][1][kflip2][l] ) / 2.;
+		bcov[i][N2+1][k][l] = ( bcov[i][N2][kflip1][l] 
+					+ bcov[i][N2][kflip2][l] ) / 2.;
+		ucon[i][0][k][l]    = ( ucon[i][1][kflip1][l]
+					+ ucon[i][1][kflip2][l] ) / 2.;
+		ucon[i][N2+1][k][l] = ( ucon[i][N2][kflip1][l]
+					+ ucon[i][N2][kflip2][l] ) / 2.;
+		ucov[i][0][k][l]    = ( ucov[i][1][kflip1][l] 
+					+ ucov[i][1][kflip2][l] ) / 2.;
+		ucov[i][N2+1][k][l] = ( ucov[i][N2][kflip1][l] 
+					+ ucov[i][N2][kflip2][l] ) / 2.;
+	      }
+	      for (l=0; l<NPRIM; ++l) {
+		p[l][i][0][k]    = ( p[l][i][1][kflip1]
+				     + p[l][i][1][kflip2] ) / 2.;
+		p[l][i][N2+1][k] = ( p[l][i][N2][kflip1]
+				     + p[l][i][N2][kflip2] ) / 2.;
+	      }
+	    }
+	  }
+	}
+	
+	//for phi, periodic
+	for(i = 1; i < N1+1; i++){
+	  for(j = 1; j < N2+1; ++j){
+
+	    for(l = 0; l < NDIM; l++){
+	      bcon[i][j][0   ][l] = bcon[i][j][N3][l];
+	      bcon[i][j][N3+1][l] = bcon[i][j][1 ][l];
+
+	      bcov[i][j][0   ][l] = bcov[i][j][N3][l];
+	      bcov[i][j][N3+1][l] = bcov[i][j][1 ][l];
+
+	      ucon[i][j][0   ][l] = ucon[i][j][N3][l];
+	      ucon[i][j][N3+1][l] = ucon[i][j][1 ][l];
+
+	      ucov[i][j][0   ][l] = ucov[i][j][N3][l];
+	      ucov[i][j][N3+1][l] = ucov[i][j][1 ][l];
+	    }
+	    //prim
+	    for(l = 0; l < NPRIM; ++l){
+	      p[l][i][j][0   ]=p[l][i][j][N3];
+	      p[l][i][j][N3+1]=p[l][i][j][1 ];
+	    }
+	    
+	  }
+	}
+	
+
 	dMact *= dx[3]*dx[2] ;
 	dMact /= 21. ;
 	Ladv *= dx[3]*dx[2] ;
 	Ladv /= 21. ;
 
-	/*some stuff used in Moscibrodzka 2019*/
 	/*
 	double Mstar=0.4*MSUN;
 	double Jorb= (Mstar*MBH)/(Mstar+MBH)*sqrt(GNEWT*(MBH+Mstar)*3.79*RSUN); //this is in cgs for sure
@@ -1073,6 +1108,9 @@ void init_harm3d_data(char *fname)
 
 }
 
+
+
+/* check this*/
 /* this is from illinois version that does not need second derivative of theta, works for funky cooridnates or whatever */
 double theta_func(double x[NDIM])
 {
@@ -1080,12 +1118,11 @@ double theta_func(double x[NDIM])
     bl_coord(x, &r, &th);
     return th;
 }
-
 double root_find2(double X[NDIM])
 {
     double th = X[2];
     double thb, thc;
-
+    
     double Xa[NDIM], Xb[NDIM], Xc[NDIM];
     Xa[1] = log(X[1]);
     Xa[3] = X[3];
@@ -1095,32 +1132,35 @@ double root_find2(double X[NDIM])
     Xc[3] = Xa[3];
 
     if (X[2] < M_PI / 2.) {
-        Xa[2] = 0. - SMALL;
-        Xb[2] = 0.5 + SMALL;
+	Xa[2] = 0. - SMALL;
+	Xb[2] = 0.5 + SMALL;
     } else {
-        Xa[2] = 0.5 - SMALL;
-        Xb[2] = 1. + SMALL;
+	Xa[2] = 0.5 - SMALL;
+	Xb[2] = 1. + SMALL;
     }
-
+    
     thb = theta_func(Xb);
-
+    
     /* bisect for a bit */
     double tol = 1.e-9;
     for (int i = 0; i < 1000; i++) {
-        Xc[2] = 0.5 * (Xa[2] + Xb[2]);
-        thc = theta_func(Xc);
-
-        if ((thc - th) * (thb - th) < 0.)
-            Xa[2] = Xc[2];
-        else
-            Xb[2] = Xc[2];
-
-        double err = theta_func(Xc) - th;
-        if (fabs(err) < tol)
-            break;
+	Xc[2] = 0.5 * (Xa[2] + Xb[2]);
+	thc = theta_func(Xc);
+	
+	if ((thc - th) * (thb - th) < 0.)
+	    Xa[2] = Xc[2];
+	else
+	    Xb[2] = Xc[2];
+	
+	double err = theta_func(Xc) - th;
+	if (fabs(err) < tol)
+	    break;
     }
-
+    
     return (Xa[2]);
-
+        
 }
+
+
+
 
