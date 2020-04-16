@@ -3,22 +3,16 @@
 #include <omp.h>
 #include <time.h>
 
-#define MAXNSTEP 	60000
-#define POLARIZATION_ON (1)
-
 
 /*shared*/
 double image[NX][NY];
 double imageS[NX][NY][NDIM];
 double col_var[NX][NY][3];
 
-void make_txt(double image[NX][NY], double imageS[NX][NY][NDIM], double freqcgs, char *fname, double FOVX, double FOVY,double scale);
-double root_find2(double x[NDIM]);
-
 int main(int argc, char *argv[])
 {
     FILE *fp;
-    double DX, DY, fovx, fovy;
+    double fovx, fovy;
     double thetacam, phicam, rcam, Xcam[NDIM];
     double freq, freqcgs;
     double Ftot, Dsource;
@@ -27,8 +21,17 @@ int main(int argc, char *argv[])
     double Imax, Iavg;	     
     double col_v_int[4];
 
-    if (argc < 6) {
-	fprintf(stderr,"usage: ipole theta freq filename Munit trat_j trat_d\n");
+#if(NT_PROB)
+    if (argc < 3) {
+	fprintf(stderr,"usage: ipole theta freq a\n");
+	exit(0);
+    }
+    sscanf(argv[1], "%lf", &thetacam);
+    sscanf(argv[2], "%lf", &freqcgs);
+    sscanf(argv[3],"%lf",&a) ;
+#else    
+    if (argc < 7) {
+	fprintf(stderr,"usage: ipole theta freq filename Munit trat_j trat_d sigma_cut\n");
 	exit(0);
     }
 
@@ -38,10 +41,15 @@ int main(int argc, char *argv[])
     sscanf(argv[5], "%lf", &trat_j);
     sscanf(argv[6], "%lf", &trat_d);
     sscanf(argv[7], "%lf", &sigma_cut);
+#endif
+    
 
+    //initiate model and photon frequency
     init_model(argv);
     freq = freqcgs * HPL / (ME * CL * CL);
-    rcam = 1000.;
+
+    //camera position
+    rcam = 1000.; //default value
     phicam = 0.0;
     Xcam[0] = 0.0;
     Xcam[1] = log(rcam);
@@ -50,18 +58,23 @@ int main(int argc, char *argv[])
     Xcam[3] = phicam;
     fprintf(stdout,"camera coordinates: %g %g %g %g \n",Xcam[0],Xcam[1],Xcam[2],Xcam[3]);
 
-    //chose source distance
+    
+#if(SOURCE_SGRA)
+    Dsource = DSGRA;
+#endif
+#if(SOURCE_M87)
     Dsource = DM87;
-    //Dsource = DSGRA;
-    //Dsource = DABHB;
+#endif
+#if(SOURCE_DABHB)
+    Dsource = DABHB;
+#endif
+#if(SOURCE_NT)
+    Dsource = 0.05*PC;
+#endif
 
-    //chose image FOV in uas
-    DX=160.0/(L_unit/Dsource * 2.06265e11);
-    DY=160.0/(L_unit/Dsource * 2.06265e11);
-
-    //or in M
-    //DX = 44.17;
-    //DY = 44.17;
+    //to chose image FOV in uas one has to uncomment this and problably next
+    //DX=160.0/(L_unit/Dsource * 2.06265e11);
+    //DY=160.0/(L_unit/Dsource * 2.06265e11);
     
     fovx = DX / rcam;
     fovy = DY / rcam;
@@ -125,7 +138,7 @@ int main(int argc, char *argv[])
 
 	  /*break integration for high Faraday thickness*/
 	  /*
-	    if(tauFn>10.0){
+	    if(tauFn > 1.0){
 	    break;
 	    }
 	  */
@@ -151,16 +164,15 @@ int main(int argc, char *argv[])
 	
 	double Xi[NDIM], Xf[NDIM], Kconi[NDIM], Kconf[NDIM], ji, ki, jf, kf;
 	double col_v[NDIM];
+	double complex N_coord[NDIM][NDIM];
+	double Intensity = 0.0;
+	double tauF=0.0;
 	
 	for (int l = 0; l < NDIM; l++) {
 	  Xi[l] = traj[nstep].X[l];
 	  Kconi[l] = traj[nstep].Kcon[l];
 	}
-	double complex N_coord[NDIM][NDIM];
-
 	init_N(Xi, Kconi, N_coord);
-	double Intensity = 0.0;
-	double tauF=0.0;
 
 	while (nstep > 1) {
 	  for (int l = 0; l < NDIM; l++) {
@@ -173,11 +185,37 @@ int main(int argc, char *argv[])
 	  }
 	  double dl = traj[nstep].dl; //this is ok ! unless i integrate here again
 
-	  /* solve total intensity equation alone */
-	  get_jkinv(Xi, Kconi, &ji, &ki, col_v);
-	  get_jkinv(Xf, Kconf, &jf, &kf, col_v);
-	  Intensity = approximate_solve(Intensity, ji, ki, jf, kf, dl);
-	 	  
+#if(NT_PROB)
+	  //for novicov problem we solve just transport
+	  //NT:if geodesics crosses the disk then, assign non-zero I
+	  double lrd_in=log(risco_calc(1));
+	  double lrd_out=log(100.);
+	  if ( fabs(cos(M_PI*Xf[2])) < 0.01 && (Xf[1] > lrd_in) && (Xf[1] < lrd_out) ){
+	      double r=exp(Xf[1]);
+	      double Teff;
+	      double Mdotedd = 4. * M_PI * GNEWT * 10.* MSUN* MP / 0.1 / CL / SIGMA_THOMSON;
+	      double Mdot = 0.01*Mdotedd;
+	      double b = 1. - 3. / r + 2. * a / pow(r, 3. / 2.);
+	      double kc = krolikc(r, a, risco_calc(1));
+	      double T0=pow(3.0 / 8.0 / M_PI * GNEWT * 10. *MSUN * Mdot / pow(L_unit, 3) / SIG, 1. / 4.);
+	      if (r < exp(lrd_out)) {
+		  Teff = T0 * pow(kc / b / pow(r, 3), 1. / 4.);
+	      } else {
+		  Teff = T0 / 1e5;
+	      }
+	      double ff=1.8;
+	      double nu=get_NT_nu(Xf,Kconf); //return nu in fluid frame in Hz, and polarization tensor
+	      Intensity=pow(ff,-4)*bnu(nu,ff*Teff);///nu/nu/nu;//invariant Intensity
+	      get_NT_S(Xf,Kconf,Intensity,N_coord); //assign correct N_coord in this second round
+	      Intensity=Intensity/nu/nu/nu;
+	  }
+#else	      
+	      /* solve total intensity equation alone */
+	      get_jkinv(Xi, Kconi, &ji, &ki, col_v);
+	      get_jkinv(Xf, Kconf, &jf, &kf, col_v);
+	      Intensity = approximate_solve(Intensity, ji, ki, jf, kf, dl);
+#endif	  
+	
 #if(POLARIZATION_ON)
 	  /* solve polarized transport */
 	  evolve_N(Xi, Kconi, Xhalf, Kconhalf, Xf, Kconf, traj[nstep].dl, N_coord, &tauF);
@@ -240,6 +278,8 @@ int main(int argc, char *argv[])
     fprintf(stderr, "Ftot: %g %g %g %g scale=%g\n", freqcgs, Ftot,  Ftot * Dsource * Dsource * JY * freqcgs * 4 * M_PI, 
 	    Dsource * Dsource * JY  * 4 * M_PI, scale);
 
+    
+    
     //open file append with all data
     fp = fopen("output_ipole/ipole_sed.dat", "a");
     fprintf(fp, "nu Ftot nuLnu FtotI FtotQ FtotU FtotV: %g %g %g  %g %g %g %g  %g %g %g %g\n", 
@@ -404,22 +444,22 @@ void dump(double image[NX][NY], double imageS[NX][NY][NDIM], double col_varp[NX]
     fprintf(fp, "Image Simulation Result\n");
     fprintf(fp, "ASCII\n");
     fprintf(fp, "DATASET STRUCTURED_GRID\n");
-    fprintf(fp, "DIMENSIONS %d %d %d\n", NX + 1, NY + 1, 1);
-    fprintf(fp, "POINTS %d float\n", (NX + 1) * (NY + 1));
+    fprintf(fp, "DIMENSIONS %d %d %d\n", NX , NY , 1);
+    fprintf(fp, "POINTS %d float\n", (NX ) * (NY));
 
-    for (j = 0; j <= NY; j++) {
-	for (i = 0; i <= NX; i++) {
+    for (j = 0; j < NY; j++) {
+	for (i = 0; i < NX; i++) {
 	    xx = i * 1.0;	//-x_size/2.+i*stepx;                                                                                                                 
 	    yy = j * 1.0;	//-y_size/2.+j*stepy;                                                                                                                 
 	    fprintf(fp, "%g %g %g\n", xx, yy, 0.0);
 	}
     }
-    fprintf(fp, "\nPOINT_DATA %d\n", (NX + 1) * (NY + 1));
+    fprintf(fp, "\nPOINT_DATA %d\n", (NX) * (NY));
     fprintf(fp, "SCALARS Intensity float\n");
     fprintf(fp, "LOOKUP_TABLE default\n");
 
-    for (j = 0; j <= NY; j++) {
-	for (i = 0; i <= NX; i++) {
+    for (j = 0; j < NY; j++) {
+	for (i = 0; i < NX; i++) {
 	    dum_r = (image[i][j]);
 	    fprintf(fp, "%g\n", dum_r);
 	}
