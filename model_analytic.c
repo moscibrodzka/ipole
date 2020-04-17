@@ -486,7 +486,7 @@ void get_model_bcov(double X[NDIM], double Bcov[NDIM])
   }
 
   double Bcon[NDIM],gcov[NDIM][NDIM];
-  get_model_ucon(X,Bcon);
+  get_model_bcon(X,Bcon);
   gcov_func(X, gcov);
   lower(Bcon, gcov, Bcov);
 }
