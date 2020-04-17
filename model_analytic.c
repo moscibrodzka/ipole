@@ -447,7 +447,7 @@ void get_model_bcon(double X[NDIM], double Bcon[NDIM])
   B_1 = -( F11
 	   - F12
 	   + F21
-	   - F11
+	   - F22
 	   )/(2.*dx2*g) ;
 
   B_2 = (  F11
