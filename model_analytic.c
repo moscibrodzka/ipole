@@ -1,9 +1,7 @@
-
 #include "decs.h"
 
 /*                                                                                                                                                                    first geometry used in the model and then HARM model specification routines 
 */
-
 
 /*                                                                                                                                                                          model-dependent geometry routines:                                                                                                                                          risco_calc                                                                                                                                                          rhorizon_calc                                                                                                                                                       gcov                                                                                                                                                                get_connection                                                                                                                                      
 */
@@ -41,7 +39,7 @@ void set_dxdX(double X[NDIM], double dxdX[NDIM][NDIM])
     //traditional coordinates with cut and with hslope
     dxdX[0][0] = 1.;
     dxdX[1][1] = exp(X[1]);
-    dxdX[2][2] = M_PI + hslope*2*M_PI*cos(2*M_PI*X[2]); 
+    dxdX[2][2] = M_PI  + hslope*2*M_PI*cos(2*M_PI*X[2]); 
     dxdX[3][3] = 1.;
 }
 
@@ -129,9 +127,9 @@ void get_connection(double X[NDIM], double lconn[NDIM][NDIM][NDIM])
 
     //if spherical polar
     //numerical connections
-    //get_connection_num(X,lconn);
-    //return;
-    
+  //get_connection_num(X,lconn);
+  //return;
+  
     double r1,r2,r3,r4,sx,cx;
     double th,dthdx2,dthdx22,d2thdx22,sth,cth,sth2,cth2,sth4,cth4,s2th,c2th;
     double a2,a3,a4,rho2,irho2,rho22,irho22,rho23,irho23,irho23_dthdx2;
@@ -419,8 +417,8 @@ void get_model_bcon(double X[NDIM], double Bcon[NDIM])
   double B_1=0.0;
   double B_2=0.0;
   double B_3=1.0;
-  
-  // vertical
+
+  //zone centered gdet
   double g = gdet_func(gcov);
 
   //compute Aphi and via constrainted transport (CT) B field, divergence free B
@@ -428,21 +426,24 @@ void get_model_bcon(double X[NDIM], double Bcon[NDIM])
   bl_coord(X, &r, &th);
   double dx1=0.025;
   double dx2=0.025;
+
+  // vertical
   
-  double F11 = pow(exp(log(r)-dx1) * sin(th-dx2*M_PI),1);
-  double F12 = pow(exp(log(r)-dx1) * sin(th+dx2*M_PI),1);
-  double F21 = pow(exp(log(r)+dx1) * sin(th-dx2*M_PI),1);
-  double F22 = pow(exp(log(r)+dx1) * sin(th+dx2*M_PI),1);
+  double F11 = pow(exp(log(r)-dx1) * sin(th-dx2*M_PI),2);
+  double F12 = pow(exp(log(r)-dx1) * sin(th+dx2*M_PI),2);
+  double F21 = pow(exp(log(r)+dx1) * sin(th-dx2*M_PI),2);
+  double F22 = pow(exp(log(r)+dx1) * sin(th+dx2*M_PI),2);
   
-  //radial
+  
+  //radial, monopolar
   /*
   double F11 = 1-cos(th-dx2*M_PI);
   double F12 = 1-cos(th+dx2*M_PI);
   double F21 = 1-cos(th-dx2*M_PI);
   double F22 = 1-cos(th+dx2*M_PI);
   */
+
   /* flux-ct */
-  
   B_1 = -( F11
 	   - F12
 	   + F21
@@ -456,17 +457,17 @@ void get_model_bcon(double X[NDIM], double Bcon[NDIM])
 	   )/(2.*dx1*g) ;
   
   B_3 = 0.0 ;
-  
-  
+    
+  // above are primitive B fields, the reconstruction below is exactly the same as in harm3d models
+  // this is checked, OK
   Bcon[0] =
     B_1 * Ucov[1] +
     B_2 * Ucov[2] +
     B_3 * Ucov[3] ;
-
   Bcon[1] = ( B_1 + Bcon[0] * Ucon[1]) / Ucon[0];
   Bcon[2] = ( B_2 + Bcon[0] * Ucon[2]) / Ucon[0];
   Bcon[3] = ( B_3 + Bcon[0] * Ucon[3]) / Ucon[0];
-
+  
 }
 
 void get_model_bcov(double X[NDIM], double Bcov[NDIM])
@@ -489,6 +490,7 @@ void get_model_bcov(double X[NDIM], double Bcov[NDIM])
   get_model_bcon(X,Bcon);
   gcov_func(X, gcov);
   lower(Bcon, gcov, Bcov);
+
 }
 
 double get_model_thetae(double X[NDIM])
@@ -581,7 +583,6 @@ double get_model_ne(double X[NDIM])
   bl_coord(X, &r, &th);
   mu2=cos(th)*cos(th);
   double sigma2=0.3*0.3;
-  
   ne_bg=8e4;
   //thick flow, spherically symetric here, how can it all rotatiate
   if(r>Risco){
