@@ -6,6 +6,10 @@
 /*                                                                                                                                                                          model-dependent geometry routines:                                                                                                                                          risco_calc                                                                                                                                                          rhorizon_calc                                                                                                                                                       gcov                                                                                                                                                                get_connection                                                                                                                                      
 */
 
+//chose field geometry in the model
+#define TOROIDAL (0)
+#define VERTICAL (1)
+#define RADIAL (0)
 
 //Kerr metric only
 double risco_calc( int do_prograde )
@@ -77,6 +81,7 @@ void gcov_func(double *X, double gcov[][NDIM])
   gcov_ks[3][1] = gcov_ks[1][3];
   gcov_ks[3][3] = s2 * (rho2 + a * a * s2 * (1. + 2. * r / rho2));
 
+ 
   //optional plain spherical polar
   /*
   gcov_ks[0][0] = -1. ;
@@ -125,10 +130,10 @@ void gcov_func(double *X, double gcov[][NDIM])
 void get_connection(double X[NDIM], double lconn[NDIM][NDIM][NDIM])
 {
 
-    //if spherical polar
-    //numerical connections
-  //get_connection_num(X,lconn);
-  //return;
+   //if spherical polar
+   //numerical connections
+   //get_connection_num(X,lconn);
+   //return;
   
     double r1,r2,r3,r4,sx,cx;
     double th,dthdx2,dthdx22,d2thdx22,sth,cth,sth2,cth2,sth4,cth4,s2th,c2th;
@@ -276,23 +281,14 @@ void get_connection(double X[NDIM], double lconn[NDIM][NDIM][NDIM])
 void init_model(char *args[])
 {
 	set_units(args[4]);
-	a = 0.;
-	th_beg=0.0;
-
+	a = 0.998;
 	Risco = risco_calc(1);
 	Rh = rhorizon_calc(1);
-	
 	fprintf(stdout,"Risco=%g \n",Risco);
-	
 	Rout=100.;
 	hslope=0.0;
+	th_beg=0.0;
 
-	startx[1]=log(Rh);
-	startx[2]=0.0;  
-	startx[3]=0.0;
-	stopx[1] = log(Rout);
-	stopx[2] = 1.;
-        stopx[3] = M_PI*2;
 	
 }
 
@@ -318,6 +314,7 @@ void get_model_ucon(double X[NDIM], double Ucon[NDIM])
 
   //Keplerian velocity down to ISCO
   if(r>Risco){
+  //if(0){
     sth2=sin(th)*sin(th);
     cth2=cos(th)*cos(th);
     rho2=r*r+a*a*cth2;
@@ -344,14 +341,15 @@ void get_model_ucon(double X[NDIM], double Ucon[NDIM])
     /* transform Ucon from BL -> KS */
     double dtKS_drBL   = 2. * r / (r*r - 2.*r + a*a);
     double dphiKS_drBL = a / (r*r - 2.*r + a*a);
-    Ucon[0] = Ucon_bl[0]  +  Ucon_bl[1] * dtKS_drBL;
+    Ucon[0] = Ucon_bl[0] +  Ucon_bl[1] * dtKS_drBL;
     Ucon[1] = Ucon_bl[1];
     Ucon[2] = Ucon_bl[2];
-    Ucon[3] = Ucon_bl[3]  +  Ucon_bl[1] * dphiKS_drBL;
+    Ucon[3] = Ucon_bl[3] +  Ucon_bl[1] * dphiKS_drBL;
     
     /* transform KS -> KS' coords, Ucon has to be in the same coord as K^mu */
     Ucon[1] /= r;
     Ucon[2] /= M_PI;
+
 
     if( isnan(Ucon[0]) ){
       fprintf(stdout,"here r=%g AA=%g omega=%g %g %g %g  %g\n",r,AA,omega,
@@ -394,97 +392,93 @@ void get_model_ucov(double X[NDIM], double Ucov[NDIM])
 void get_model_bcon(double X[NDIM], double Bcon[NDIM])
 {
 
-  if(X[1] < startx[1] ||
-     X[1] > stopx[1]  ||
-     X[2] < startx[2] ||
-     X[2] > stopx[2]) {
-    
-    Bcon[0] = 0. ;
-    Bcon[1] = 0. ;
-    Bcon[2] = 0. ;
-    Bcon[3] = 0. ;
-    
-    return ;
-  }
-  
-  //compute Bcon in case of toroidal field
   double Ucov[NDIM],Ucon[NDIM],gcov[NDIM][NDIM];
+  double B_1,B_2,B_3;
+  
   get_model_ucov(X,Ucov);
   get_model_ucon(X,Ucon);
   gcov_func(X, gcov);
 
   //TOROIDAL FIELD
-  double B_1=0.0;
-  double B_2=0.0;
-  double B_3=1.0;
+  if(TOROIDAL){
+    B_1=0.0;
+    B_2=0.0;
+    B_3=1.0;
+  }
 
-  //zone centered gdet
-  double g = gdet_func(gcov);
 
-  //compute Aphi and via constrainted transport (CT) B field, divergence free B
-  double r, th;
-  bl_coord(X, &r, &th);
-  double dx1=0.025;
-  double dx2=0.025;
+  if(VERTICAL){
 
-  // vertical
-  
-  double F11 = pow(exp(log(r)-dx1) * sin(th-dx2*M_PI),2);
-  double F12 = pow(exp(log(r)-dx1) * sin(th+dx2*M_PI),2);
-  double F21 = pow(exp(log(r)+dx1) * sin(th-dx2*M_PI),2);
-  double F22 = pow(exp(log(r)+dx1) * sin(th+dx2*M_PI),2);
-  
-  
-  //radial, monopolar
-  /*
-  double F11 = 1-cos(th-dx2*M_PI);
-  double F12 = 1-cos(th+dx2*M_PI);
-  double F21 = 1-cos(th-dx2*M_PI);
-  double F22 = 1-cos(th+dx2*M_PI);
-  */
-
-  /* flux-ct */
-  B_1 = -( F11
-	   - F12
-	   + F21
-	   - F22
-	   )/(2.*dx2*g) ;
-
-  B_2 = (  F11
-	   + F12
-	   - F21
-	   - F22
-	   )/(2.*dx1*g) ;
-  
-  B_3 = 0.0 ;
+    //zone centered gdet
+    double g = gdet_func(gcov);
+    //compute Aphi and via constrainted transport (CT) B field, divergence free B
+    double r, th;
+    bl_coord(X, &r, &th);
+    double dx1=0.025;
+    double dx2=0.025;
     
-  // above are primitive B fields, the reconstruction below is exactly the same as in harm3d models
+    // vertical
+    double F11 = pow(exp(log(r)-dx1) * sin(th-dx2*M_PI),1);
+    double F12 = pow(exp(log(r)-dx1) * sin(th+dx2*M_PI),1);
+    double F21 = pow(exp(log(r)+dx1) * sin(th-dx2*M_PI),1);
+    double F22 = pow(exp(log(r)+dx1) * sin(th+dx2*M_PI),1);
+
+    /* flux-ct */
+    B_1 = -( F11
+	     - F12
+	     + F21
+	     - F22
+	     )/(2.*dx2*g) ;
+
+    B_2 = (  F11
+	     + F12
+	     - F21
+	     - F22
+	     )/(2.*dx1*g) ;
+  
+    B_3 = 0.0 ;
+  }
+
+  if(RADIAL){
+
+    //zone centered gdet
+    double g = gdet_func(gcov);
+    //compute Aphi and via constrainted transport (CT) B field, divergence free B
+    double r, th;
+    bl_coord(X, &r, &th);
+    double dx1=0.025;
+    double dx2=0.025;
+
+    //radial, monopolar
+    double F11 = 1-cos(th-dx2*M_PI);
+    double F12 = 1-cos(th+dx2*M_PI);
+    double F21 = 1-cos(th-dx2*M_PI);
+    double F22 = 1-cos(th+dx2*M_PI);
+    B_1 = -( F11
+	     - F12
+	     + F21
+	     - F22
+	     )/(2.*dx2*g) ;
+
+    B_2 = (  F11
+	     + F12
+	     - F21
+	     - F22
+	     )/(2.*dx1*g) ;
+  
+    B_3 = 0.0 ;
+  }
+  
   // this is checked, OK
-  Bcon[0] =
-    B_1 * Ucov[1] +
-    B_2 * Ucov[2] +
-    B_3 * Ucov[3] ;
+  Bcon[0] = B_1 * Ucov[1] + B_2 * Ucov[2] + B_3 * Ucov[3] ;
   Bcon[1] = ( B_1 + Bcon[0] * Ucon[1]) / Ucon[0];
   Bcon[2] = ( B_2 + Bcon[0] * Ucon[2]) / Ucon[0];
   Bcon[3] = ( B_3 + Bcon[0] * Ucon[3]) / Ucon[0];
-  
+
 }
 
 void get_model_bcov(double X[NDIM], double Bcov[NDIM])
 {
-
-  if(X[1] < startx[1] ||
-     X[1] > stopx[1]  ||
-     X[2] < startx[2] ||
-     X[2] > stopx[2]) {
-
-    Bcov[0] = 0. ;
-    Bcov[1] = 0. ;
-    Bcov[2] = 0. ;
-    Bcov[3] = 0. ;
-    
-    return ;
-  }
 
   double Bcon[NDIM],gcov[NDIM][NDIM];
   get_model_bcon(X,Bcon);
@@ -530,7 +524,7 @@ double get_model_ne(double X[NDIM])
   double trans[NDIM][NDIM], tmp[NDIM];
 
   double ne_spot,Rspot,P;
-  double xspot[NDIM];//curent position of a spot center in KS'                                                                                                                                
+  double xspot[NDIM];//curent position of a spot center in KS'
   double th_spot,r_spot,xx;
   double xc,yc,zc;
   double xs,ys,zs;
@@ -538,55 +532,57 @@ double get_model_ne(double X[NDIM])
   ne_spot=0.0;
 
   /*hot spot parameters*/
-  // period of a spot = 2pi(rspot^1.5+a) [M]
-  r_spot=6.;
-  th_spot=0.5*M_PI;
-  //  get_model_ucon(X,Ucon);
-  r32=pow(r_spot,1.5);
-  omega=1./(r32+a);
-  P=2.*M_PI/omega; //orbital period of the spot [M] 
+  
+  /* // period of a spot = 2pi(rspot^1.5+a) [M] */
+  /* r_spot=6.; */
+  /* th_spot=0.5*M_PI; */
+  /* //  get_model_ucon(X,Ucon); */
+  /* r32=pow(r_spot,1.5); */
+  /* omega=1./(r32+a); */
+  /* P=2.*M_PI/omega; //orbital period of the spot [M]  */
 
-  //spot currrent position, fixed as the light propagates
-  xspot[0]=X[0];        //current coordinate time, where is the spot at this time?
-  xspot[1]=log(r_spot); //log scale 
-  xspot[2]=0.5;         //equator 0.5*pi
-  xspot[3]=fmod(X[0]/P,1.)*2.*M_PI; //fraction of a full period *2*pi, spot current phi at time t=X[0]
+  /* //spot currrent position, fixed as the light propagates */
+  /* xspot[0]=X[0];        //current coordinate time, where is the spot at this time? */
+  /* xspot[1]=log(r_spot); //log scale  */
+  /* xspot[2]=0.5;         //equator 0.5*pi */
+  /* xspot[3]=fmod(X[0]/P,1.)*2.*M_PI; //fraction of a full period *2*pi, spot current phi at time t=X[0] */
 
-  int n,nmax;
-  double spot_n_den;
-  nmax=0; //nmax spots del phi=2*pi/nmax
-  for(n=0;n<nmax;n++){
-    xspot[3] += 2*M_PI/nmax*n;
+  /* int n,nmax; */
+  /* double spot_n_den; */
+  /* nmax=0; //nmax spots del phi=2*pi/nmax */
+  /* for(n=0;n<nmax;n++){ */
+  /*   xspot[3] += 2*M_PI/nmax*n; */
     
-    /*pseudo-Cartesian coordinates*/
-    xc=sqrt(exp(X[1])*exp(X[1])+a*a)*cos(X[3]);
-    yc=sqrt(exp(X[1])*exp(X[1])+a*a)*sin(X[3]);
-    zc=exp(X[1])*cos(X[2]*M_PI);
+  /*   /\*pseudo-Cartesian coordinates*\/ */
+  /*   xc=sqrt(exp(X[1])*exp(X[1])+a*a)*cos(X[3]); */
+  /*   yc=sqrt(exp(X[1])*exp(X[1])+a*a)*sin(X[3]); */
+  /*   zc=exp(X[1])*cos(X[2]*M_PI); */
     
-    xs=sqrt(exp(xspot[1])*exp(xspot[1])+a*a)*cos(xspot[3]);
-    ys=sqrt(exp(xspot[1])*exp(xspot[1])+a*a)*sin(xspot[3]);
-    zs=exp(xspot[1])*cos(xspot[2]*M_PI);
+  /*   xs=sqrt(exp(xspot[1])*exp(xspot[1])+a*a)*cos(xspot[3]); */
+  /*   ys=sqrt(exp(xspot[1])*exp(xspot[1])+a*a)*sin(xspot[3]); */
+  /*   zs=exp(xspot[1])*cos(xspot[2]*M_PI); */
     
-    //spatial distance^2 between photon position and spot center                                                                       
-    xx=fabs(pow(xc-xs,2)+pow(yc-ys,2)+pow(zc-zs,2));
-    //spatial distance^2 between photon position and ring at the equatorial plane
-    Rspot=0.75*2.; //spot size 
-    //ne_spot *= exp(-(xx)/2./Rspot/Rspot);
+  /*   //spatial distance^2 between photon position and spot center                                                                        */
+  /*   xx=fabs(pow(xc-xs,2)+pow(yc-ys,2)+pow(zc-zs,2)); */
+  /*   //spatial distance^2 between photon position and ring at the equatorial plane */
+  /*   Rspot=0.75*2.; //spot size  */
+  /*   //ne_spot *= exp(-(xx)/2./Rspot/Rspot); */
     
-    spot_n_den=2.e6*exp(-(xx)/2./Rspot/Rspot);
-    if(spot_n_den < 1e5) spot_n_den=0.0;
+  /*   spot_n_den=2.e6*exp(-(xx)/2./Rspot/Rspot); */
+  /*   if(spot_n_den < 1e5) spot_n_den=0.0; */
     
-    ne_spot += spot_n_den;
-  }
+  /*   ne_spot += spot_n_den; */
+  /* } */
 
   //curent photon position and background  
+
   bl_coord(X, &r, &th);
   mu2=cos(th)*cos(th);
   double sigma2=0.3*0.3;
   ne_bg=8e4;
   //thick flow, spherically symetric here, how can it all rotatiate
   if(r>Risco){
-    return ne_bg*pow(r,-1.5)*exp(-mu2/2/sigma2) + ne_spot;
+    return ne_bg*pow(r,-1.5)*exp(-mu2/2/sigma2) ;//+ ne_spot;
   }else{
     return 0.0;
   }
@@ -625,7 +621,6 @@ void set_units(char *munitstr)
 #endif
     
     sscanf(munitstr,"%lf",&M_unit) ;
-
     MBH *= MSUN ;
     
     /** from this, calculate units of length, time, mass,                                                                                                        
@@ -642,10 +637,10 @@ void set_units(char *munitstr)
 }
 
 
-double theta_func(double x[NDIM])
+double theta_func(double X[NDIM])
 {
     double r,th;
-    bl_coord(x, &r, &th);
+    bl_coord(X, &r, &th);
     return th;
 }
 
