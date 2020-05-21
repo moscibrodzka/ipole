@@ -48,9 +48,7 @@ void jar_calc(double X[NDIM], double Kcon[NDIM],
     Ne = get_model_ne(X);
     get_model_ucov(X, Ucov);
     theta = get_bk_angle(X, Kcon, Ucov);	/* angle between k & b  */
-
     B = get_model_b(X);	/* field in G                */
-        
     double sigma_m=(B*B/B_unit/B_unit)/(Ne*(MP+ME))*RHO_unit;
     nu = get_fluid_nu(Kcon, Ucov);	/* freqcgs1;  freq in Hz */
     
@@ -96,11 +94,15 @@ void jar_calc(double X[NDIM], double Kcon[NDIM],
 	Xe = Thetae * sqrt(S2 * sin(theta) * (1.e3 * omega0 / 2. / M_PI / nu));
 
 	//this is used normally
+	/*
 	*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
 	    (gsl_sf_bessel_Kn(0,1./Thetae) -Je(Xe)) / gsl_sf_bessel_Kn(2,1./Thetae) * cos(theta);
+	*/
+
+	//*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
+	//  (besselk_asym(0, Thetaer) - Je(Xe)) / besselk_asym(2, Thetaer) * cos(theta);
 
 	//this is used for EHT-library only
-	/*
 	if (Thetae > 3.0) {
 	    // High temperature: use approximations to bessel
 	    *rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
@@ -113,10 +115,9 @@ void jar_calc(double X[NDIM], double Kcon[NDIM],
 	    // Use the constant low-temperature limit
 	    *rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) * cos(theta);
 	}
-	*/
-	
+		
 	*rV *= nu;
-
+	
 	return;
 	
     } else {
@@ -141,15 +142,17 @@ void jar_calc(double X[NDIM], double Kcon[NDIM],
       *rU = 0.0;
 
       //original Dexter 2016 
+
       //*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
-      //(besselk_asym(0, Thetaer) - Je(Xe)) / besselk_asym(2, Thetaer) * cos(theta);
-      
+      //	(besselk_asym(0, Thetaer) - Je(Xe)) / besselk_asym(2, Thetaer) * cos(theta);
       //my correction
+      /*
       *rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
 	  (gsl_sf_bessel_Kn(0,1./Thetae) - Je(Xe)) / gsl_sf_bessel_Kn(2,1./Thetae) * cos(theta);
-
+      */
+      
       //this is used for EHT-library only
-      /*
+      
       if (Thetae > 3.0) {
 	// High temperature: use approximations to bessel
 	*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
@@ -162,16 +165,16 @@ void jar_calc(double X[NDIM], double Kcon[NDIM],
 	// Use the constant low-temperature limit
 	*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) * cos(theta);
       }
-      */
+      
+      
       //Hung and Scherbakov fit
       //*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
       //   gsl_sf_bessel_Kn(0, Thetaer) / (gsl_sf_bessel_Kn(2, Thetaer)+SMALL) * g(Xe) * cos(theta);
-      
       /* invariant rotativities */
       *rQ *= nu;
       *rV *= nu;
-      
-      /* synchrotron emissivity */
+
+      /* synchrotron emissivity */ 
       nuc = 3.0 * EE * B * sin(theta) / 4.0 / M_PI / ME / CL * Thetae * Thetae + 1.0;
       x = nu / nuc;
       
@@ -179,7 +182,7 @@ void jar_calc(double X[NDIM], double Kcon[NDIM],
       *jQ = Ne * EE * EE * nu / 2. / S3 / CL / Thetae / Thetae * I_Q(x); // here mistake in grtrans
       *jU = 0.0;	                                        	 // convention; depends on tetrad
       *jV = 2. * Ne * EE * EE * nu / tan(theta) / 3. / S3 / CL / Thetae / Thetae / Thetae * I_V(x);
-      
+
       /* invariant emissivity */
       *jI /= nusq;
       *jQ /= nusq;
@@ -910,14 +913,20 @@ double besselk_asym(int n, double x)
 //optional
 int radiating_region(double X[4])
 {
+  
     double ne=get_model_ne(X);
-    //if( ne > 0. && X[1]<log(100.) && X[2] > th_beg/M_PI && X[2] < (1.-th_beg/M_PI)) return(1);
+    //testing
+    //if( ne > 0. && X[1]<log(100.) && X[2] > th_beg/M_PI && X[2] < (1.-th_beg/M_PI) && X[2]>0.5) return(1);
     //this is for vertical field
-    //if( ne>0.0 && X[1]<log(10000.)) return(1);
-    if( ne>0.0 && X[1]<log(100.) ) return(1);
+    //if( ne>0.0 && X[1]<log(100.)) return(1);
+    //if( ne>0.0 && X[1]<log(100.) ) return(1);
+    //    if(ne >0.0 && X[1] < log(40.) && X[2]>startx[2] && X[2]<stopx[2] ) return(1); 
+    //    if(ne >0.0 && X[1]<log(100.) && X[2] > th_beg/M_PI && X[2] < (1.-th_beg/M_PI) ) return(1);
+#if(NT_PROB)
+    return 0;
+#endif    
+    if(ne >0.0 && X[1]<log(1000.) && X[2] > th_beg/M_PI && X[2] < (1.-th_beg/M_PI) ) return(1);
     else return(0);
-    //if(ne >0.0 && X[1] < log(40.) && X[2]>startx[2] && X[2]<stopx[2] ) return(1); 
-    //else return(0);
     
 }
 
@@ -936,9 +945,9 @@ double jnu_synch(double nu, double Ne, double Thetae, double B, double theta)
 	K2 = gsl_sf_bessel_Kn(2,1./Thetae);
       }
     
-    //original
-    //K2 = gsl_sf_bessel_Kn(2,1./Thetae);
-    K2 = 2.*Thetae*Thetae ;
+      //original
+      //K2 = gsl_sf_bessel_Kn(2,1./Thetae);
+      //K2 = 2.*Thetae*Thetae ;
 
     nuc = EE*B/(2.*M_PI*ME*CL);
     sth = sin(theta);
