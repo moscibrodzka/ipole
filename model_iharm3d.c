@@ -15,6 +15,9 @@
 		get_connection
 */
 
+//chose coordinates
+#define FMKS 0
+#define MKS 1
 
 //Kerr metric only
 double risco_calc( int do_prograde )
@@ -45,6 +48,7 @@ void set_dxdX(double X[NDIM], double dxdX[NDIM][NDIM])
   // non-KS basis
   MUNULOOP dxdX[mu][nu] = 0.;
 
+#if(FMKS)
   dxdX[0][0] = 1.;
   dxdX[1][1] = exp(X[1]);
   dxdX[2][1] = -exp(mks_smooth * (startx[1] - X[1])) * mks_smooth
@@ -68,7 +72,16 @@ void set_dxdX(double X[NDIM], double dxdX[NDIM][NDIM])
 	 / ((1. + poly_alpha) * poly_xt)
 	 - (1. - hslope) * M_PI * cos(2. * M_PI * X[2]));
   dxdX[3][3] = 1.;
+#endif
   
+//sane test
+#if(MKS)
+  dxdX[0][0] = 1.;
+  dxdX[1][1] = exp(X[1]);
+  dxdX[2][2] = M_PI + 2*M_PI*0.5*(1-hslope)*cos(2. * M_PI * X[2]);
+  //  dxdX[2][2] = M_PI + hslope*2*M_PI*cos(2*M_PI*X[2]);
+  dxdX[3][3] = 1.;
+#endif
   
 }
 
@@ -87,12 +100,11 @@ void gcov_func(double *X, double gcov[][NDIM])
   MUNULOOP gcov_ks[mu][nu] = 0.;
 
   bl_coord(X,&r,&th);
-
   cth = cos(th);
   sth = sin(th);
   s2 = sth * sth;
   rho2 = r * r + a * a * cth * cth;
-  
+
   gcov_ks[0][0] = -1. + 2. * r / rho2 ;
   gcov_ks[0][1] = 2. * r / rho2 ;
   gcov_ks[0][3] = -2. * a * r * s2 / rho2;
@@ -103,7 +115,6 @@ void gcov_func(double *X, double gcov[][NDIM])
   gcov_ks[3][0] = gcov_ks[0][3];
   gcov_ks[3][1] = gcov_ks[1][3];
   gcov_ks[3][3] = s2 * (rho2 + a * a * s2 * (1. + 2. * r / rho2));
-
     
   // convert from ks metric to a modified one using Jacobian
   double dxdX[NDIM][NDIM];
@@ -130,9 +141,150 @@ void gcov_func(double *X, double gcov[][NDIM])
 void get_connection(double X[NDIM], double lconn[NDIM][NDIM][NDIM])
 {
 
-    //for these coordinates it is safer to go numerically
-    get_connection_num(X,lconn);
+    /* for these coordinates it is safer to go numerically */
+#if(MKS)
+  get_connection_num(X,lconn);
+#endif
+  
 
+#if(FMKS)  
+    double r1,r2,r3,r4,sx,cx;
+    double th,dthdx2,dthdx22,d2thdx22,sth,cth,sth2,cth2,sth4,cth4,s2th,c2th;
+    double a2,a3,a4,rho2,irho2,rho22,irho22,rho23,irho23,irho23_dthdx2;
+    double fac1,fac1_rho23,fac2,fac3,a2cth2,a2sth2,r1sth2,a4cth4;
+	
+    r1 = exp(X[1]);
+    r2 = r1*r1;
+    r3 = r2*r1;
+    r4 = r3*r1;
+  
+    sx = sin(2.*M_PI*X[2]);
+    cx = cos(2.*M_PI*X[2]);
+  
+    /* HARM-2D MKS */
+    //th = M_PI*X[2] + 0.5*(1-hslope)*sx;
+    //dthdx2 = M_PI*(1.+(1-hslope)*cx);
+    //d2thdx22 = -2.*M_PI*M_PI*(1-hslope)*sx;
+  
+    /* HARM-3D MKS */
+    th =  M_PI*X[2] + hslope*sx;
+    dthdx2 = M_PI + 2.*M_PI*hslope*cx;
+    d2thdx22 = -4.*M_PI*M_PI*hslope*sx;	/* d^2(th)/dx2^2 */
+
+  
+    dthdx22 = dthdx2*dthdx2;
+	
+    sth = sin(th);
+    cth = cos(th);
+    sth2 = sth*sth;
+    r1sth2 = r1*sth2;
+    sth4 = sth2*sth2;
+    cth2 = cth*cth;
+    cth4 = cth2*cth2;
+    s2th = 2.*sth*cth;
+    c2th = 2*cth2 - 1.;
+    
+    a2 = a*a;
+    a2sth2 = a2*sth2;
+    a2cth2 = a2*cth2;
+    a3 = a2*a;
+    a4 = a3*a;
+    a4cth4 = a4*cth4;
+  
+    rho2 = r2 + a2cth2;
+    rho22 = rho2*rho2;
+    rho23 = rho22*rho2;
+    irho2 = 1./rho2;
+    irho22 = irho2*irho2;
+    irho23 = irho22*irho2;
+    irho23_dthdx2 = irho23/dthdx2;
+    
+    fac1 = r2 - a2cth2;
+    fac1_rho23 = fac1*irho23;
+    fac2 = a2 + 2*r2 + a2*c2th;
+    fac3 = a2 + r1*(-2. + r1);
+    
+    lconn[0][0][0] = 2.*r1*fac1_rho23;
+    lconn[0][0][1] = r1*(2.*r1+rho2)*fac1_rho23;
+    lconn[0][0][2] = -a2*r1*s2th*dthdx2*irho22;
+    lconn[0][0][3] = -2.*a*r1sth2*fac1_rho23;
+    
+    lconn[0][1][0] = lconn[0][0][1];
+    lconn[0][1][1] = 2.*r2*(r4 + r1*fac1 - a4cth4)*irho23;
+    lconn[0][1][2] = -a2*r2*s2th*dthdx2*irho22;
+    lconn[0][1][3] = a*r1*(-r1*(r3 + 2*fac1) + a4cth4)*sth2*irho23;
+  
+    lconn[0][2][0] = lconn[0][0][2];
+    lconn[0][2][1] = lconn[0][1][2];
+    lconn[0][2][2] = -2.*r2*dthdx22*irho2;
+    lconn[0][2][3] = a3*r1sth2*s2th*dthdx2*irho22;
+
+    lconn[0][3][0] = lconn[0][0][3];
+    lconn[0][3][1] = lconn[0][1][3];
+    lconn[0][3][2] = lconn[0][2][3];
+    lconn[0][3][3] = 2.*r1sth2*(-r1*rho22 + a2sth2*fac1)*irho23;
+    
+    lconn[1][0][0] = fac3*fac1/(r1*rho23);
+    lconn[1][0][1] = fac1*(-2.*r1 + a2sth2)*irho23;
+    lconn[1][0][2] = 0.;
+    lconn[1][0][3] = -a*sth2*fac3*fac1/(r1*rho23);
+
+    lconn[1][1][0] = lconn[1][0][1];
+    lconn[1][1][1] = (r4*(-2. + r1)*(1. + r1) + a2*(a2*r1*(1. + 3.*r1)*cth4 + a4cth4*cth2 + r3*sth2 + r1*cth2*(2.*r1 + 3.*r3 - a2sth2)))*irho23;
+    lconn[1][1][2] = -a2*dthdx2*s2th/fac2;
+    lconn[1][1][3] = a*sth2*(a4*r1*cth4 + r2*(2*r1 + r3 - a2sth2) + a2cth2*(2.*r1*(-1. + r2) + a2sth2))*irho23;
+    
+    lconn[1][2][0] = lconn[1][0][2];
+    lconn[1][2][1] = lconn[1][1][2];
+    lconn[1][2][2] = -fac3*dthdx22*irho2;
+    lconn[1][2][3] = 0.;
+
+    lconn[1][3][0] = lconn[1][0][3];
+    lconn[1][3][1] = lconn[1][1][3];
+    lconn[1][3][2] = lconn[1][2][3];
+    lconn[1][3][3] = -fac3*sth2*(r1*rho22 - a2*fac1*sth2)/(r1*rho23);
+
+    lconn[2][0][0] = -a2*r1*s2th*irho23_dthdx2;
+    lconn[2][0][1] = r1*lconn[2][0][0];
+    lconn[2][0][2] = 0.;
+    lconn[2][0][3] = a*r1*(a2+r2)*s2th*irho23_dthdx2;
+
+    lconn[2][1][0] = lconn[2][0][1];
+    lconn[2][1][1] = r2*lconn[2][0][0];
+    lconn[2][1][2] = r2*irho2;
+    lconn[2][1][3] = (a*r1*cth*sth*(r3*(2. + r1) + a2*(2.*r1*(1. + r1)*cth2 + a2*cth4 + 2*r1sth2)))*irho23_dthdx2;
+    
+    lconn[2][2][0] = lconn[2][0][2];
+    lconn[2][2][1] = lconn[2][1][2];
+    lconn[2][2][2] = -a2*cth*sth*dthdx2*irho2 + d2thdx22/dthdx2;
+    lconn[2][2][3] = 0.;
+    
+    lconn[2][3][0] = lconn[2][0][3];
+    lconn[2][3][1] = lconn[2][1][3];
+    lconn[2][3][2] = lconn[2][2][3];
+    lconn[2][3][3] = -cth*sth*(rho23 + a2sth2*rho2*(r1*(4. + r1) + a2cth2) + 2.*r1*a4*sth4)*irho23_dthdx2;
+    
+    lconn[3][0][0] = a*fac1_rho23;
+    lconn[3][0][1] = r1*lconn[3][0][0];
+    lconn[3][0][2] = -2.*a*r1*cth*dthdx2/(sth*rho22);
+    lconn[3][0][3] = -a2sth2*fac1_rho23;
+
+    lconn[3][1][0] = lconn[3][0][1];
+    lconn[3][1][1] = a*r2*fac1_rho23;
+    lconn[3][1][2] = -2*a*r1*(a2 + 2*r1*(2. + r1) + a2*c2th)*cth*dthdx2/(sth*fac2*fac2);
+    lconn[3][1][3] = r1*(r1*rho22 - a2sth2*fac1)*irho23;
+    
+    lconn[3][2][0] = lconn[3][0][2];
+    lconn[3][2][1] = lconn[3][1][2];
+    lconn[3][2][2] = -a*r1*dthdx22*irho2;
+    lconn[3][2][3] = dthdx2*(0.25*fac2*fac2*cth/sth + a2*r1*s2th)*irho22;
+    
+    lconn[3][3][0] = lconn[3][0][3];
+    lconn[3][3][1] = lconn[3][1][3];
+    lconn[3][3][2] = lconn[3][2][3];
+    lconn[3][3][3] = (-a*r1sth2*rho22 + a3*sth4*fac1)*irho23;
+#endif
+  
 }
 
 void interp_fourv(double X[NDIM], double ****fourv, double Fourv[NDIM]) ;
@@ -384,8 +536,8 @@ void interp_fourv(double X[NDIM], double ****fourv, double Fourv[NDIM]){
 	Fourv[1] = b3*Fourv[1] + del[3]*(d1*fourv[i][j][kp1][1] + d2*fourv[i][jp1][kp1][1] + d3*fourv[ip1][j][kp1][1] + d4*fourv[ip1][jp1][kp1][1]);
 	Fourv[2] = b3*Fourv[2] + del[3]*(d1*fourv[i][j][kp1][2] + d2*fourv[i][jp1][kp1][2] + d3*fourv[ip1][j][kp1][2] + d4*fourv[ip1][jp1][kp1][2]);
 	Fourv[3] = b3*Fourv[3] + del[3]*(d1*fourv[i][j][kp1][3] + d2*fourv[i][jp1][kp1][3] + d3*fourv[ip1][j][kp1][3] + d4*fourv[ip1][jp1][kp1][3]);
-	//new
 
+	//new
 	//no interpolation of vectors at all
 	/*
 	Fourv[0]=fourv[i][j][k][0];
@@ -491,14 +643,21 @@ void bl_coord(double *X, double *r, double *th)
 {
 
      *r = exp(X[1])  ;
+#if(MKS) 
+     //     *th = M_PI * X[2] + hslope*sin(2. * M_PI * X[2]);
+     *th = M_PI * X[2] + 0.5*(1-hslope)*sin(2. * M_PI * X[2]);
+     return;
+#endif
 
+#if(FMKS)     
      double thG = M_PI * X[2] + ((1. - hslope) / 2.) * sin(2. * M_PI * X[2]);
      double y = 2 * X[2] - 1.;
      double thJ = poly_norm * y
 	 * (1. + pow(y / poly_xt, poly_alpha) / (poly_alpha + 1.)) + 0.5 * M_PI;
      *th = thG + exp(mks_smooth * (startx[1] - X[1])) * (thJ - thG);
-        
      return;
+#endif
+
 }
 
 void coord(int i, int j, int k, double *X)
@@ -533,7 +692,6 @@ void set_units(char *munitstr)
 #endif
   
   sscanf(munitstr,"%lf",&M_unit) ;
-  
   MBH *= MSUN ;
   
   /** from this, calculate units of length, time, mass,
@@ -568,10 +726,12 @@ void init_physical_quantities(void)
 		bcon[i][j][k][3] * bcov[i][j][k][3] ;
 	      b[i][j][k] = sqrt(bsq)*B_unit ;
 	      sigma_m=bsq/p[KRHO][i][j][k] ;
+
 	      beta=p[UU][i][j][k]*(gam-1.)/0.5/bsq;
 	      b2=beta*beta;
 	      trat = trat_d * b2/(1. + b2) + trat_j /(1. + b2);
-	      Thetae_unit = (MP/ME) * (game-1.) * (gamp-1.) / ( (gamp-1.) + (game-1.)*trat );
+	      //Thetae_unit = (MP/ME) * (game-1.) * (gamp-1.) / ( (gamp-1.) + (game-1.)*trat );
+	      Thetae_unit=2.*MP/15./ME;
 	      thetae[i][j][k] = (p[UU][i][j][k]/p[KRHO][i][j][k])* Thetae_unit;
 	      thetae[i][j][k] = MAX(thetae[i][j][k], THETAE_MIN);
 	      ne[i][j][k] = p[KRHO][i][j][k] * RHO_unit/(MP+ME) ;
@@ -730,50 +890,45 @@ void init_harm3d_grid(char *fname)
 		exit(1234);
 	}
 
-	H5LTread_dataset_int(file_id,		"/header/n1", 	&N1);
-	H5LTread_dataset_int(file_id,		"/header/n2", 	&N2);
-	H5LTread_dataset_int(file_id,		"/header/n3", 	&N3);
-	H5LTread_dataset_double(file_id,	"/header/gam",		&gam);
-	H5LTread_dataset_double(file_id,	"/header/gam_e",		&game);
-	H5LTread_dataset_double(file_id,	"/header/gam_p",		&gamp);		
-	H5LTread_dataset_double(file_id, 	"/header/geom/startx1", 	&(startx[1]));
-	H5LTread_dataset_double(file_id, 	"/header/geom/startx2", 	&(startx[2]));
-	H5LTread_dataset_double(file_id, 	"/header/geom/startx3", 	&(startx[3]));
-	H5LTread_dataset_double(file_id, 	"/header/geom/dx1", 		&(dx[1]));
-	H5LTread_dataset_double(file_id, 	"/header/geom/dx2", 		&(dx[2]));
-	H5LTread_dataset_double(file_id, 	"/header/geom/dx3", 		&(dx[3]));
+	H5LTread_dataset_int(file_id,       "/header/n1",   &N1);
+        H5LTread_dataset_int(file_id,       "/header/n2",   &N2);
+        H5LTread_dataset_int(file_id,       "/header/n3",   &N3);
+        H5LTread_dataset_double(file_id,    "/header/gam",          &gam);
+        H5LTread_dataset_double(file_id,    "/header/geom/startx1",         &(startx[1]));
+        H5LTread_dataset_double(file_id,    "/header/geom/startx2",         &(startx[2]));
+        H5LTread_dataset_double(file_id,    "/header/geom/startx3",         &(startx[3]));
+        H5LTread_dataset_double(file_id,    "/header/geom/dx1",             &(dx[1]));
+        H5LTread_dataset_double(file_id,    "/header/geom/dx2",             &(dx[2]));
+        H5LTread_dataset_double(file_id,    "/header/geom/dx3",             &(dx[3]));		
 
-      
+#if(MKS) 
+	H5LTread_dataset_double(file_id,    "/header/geom/mks/a",           &a);
+	H5LTread_dataset_double(file_id,    "/header/geom/mks/r_in",        &Rin);
+	H5LTread_dataset_double(file_id,    "/header/geom/mks/r_out",       &Rout);
+	H5LTread_dataset_double(file_id,    "/header/geom/mks/hslope",      &hslope);
+#endif
 
-	H5LTread_dataset_double(file_id, 	"/header/geom/mmks/a",		&a);
-	//mads
-	//H5LTread_dataset_double(file_id,	"/header/geom/mmks/r_in",	&Rin);
-	//H5LTread_dataset_double(file_id, 	"/header/geom/mmks/r_out",	&Rout);
-	//sane
-	//H5LTread_dataset_double(file_id,	"/header/geom/mmks/Rin",	&Rin);
-	//H5LTread_dataset_double(file_id, 	"/header/geom/mmks/Rout",	&Rout);
-	H5LTread_dataset_double(file_id, 	"/header/geom/mmks/hslope",	&hslope);	
+	  
+#if(FMKS) 
+	H5LTread_dataset_double(file_id,    "/header/geom/mmks/a",          &a);
+	H5LTread_dataset_double(file_id,    "/header/gam_e",                &game);
+	H5LTread_dataset_double(file_id,    "/header/gam_p",                &gamp);
+	H5LTread_dataset_double(file_id,    "/header/geom/mmks/hslope",     &hslope);
 	/*additional parameter that describe theta*/
 	/* mks_smooth,poly_alpha,poly_xt */
-	H5LTread_dataset_double(file_id, 	"/header/geom/mmks/mks_smooth",	&mks_smooth);
-	H5LTread_dataset_double(file_id, 	"/header/geom/mmks/poly_alpha",	&poly_alpha);
-	H5LTread_dataset_double(file_id, 	"/header/geom/mmks/poly_xt",	&poly_xt);	
+	H5LTread_dataset_double(file_id,    "/header/geom/mmks/mks_smooth", &mks_smooth);
+	H5LTread_dataset_double(file_id,    "/header/geom/mmks/poly_alpha", &poly_alpha);
+	H5LTread_dataset_double(file_id,    "/header/geom/mmks/poly_xt",    &poly_xt);
 	poly_norm = 0.5*M_PI*1./(1. + 1./(poly_alpha + 1.)*1./pow(poly_xt, poly_alpha));
-	
-
-	/* for test 
-	    H5LTread_dataset_double(file_id, 	"/header/geom/mks/a",		&a);	
-	    H5LTread_dataset_double(file_id,	"/header/geom/mks/r_in",	&Rin);
-	    H5LTread_dataset_double(file_id, 	"/header/geom/mks/r_out",	&Rout);
-	    H5LTread_dataset_double(file_id, 	"/header/geom/mks/hslope",	&hslope);
-	*/
+#endif
 	
 	stopx[0] = 1.;
 	stopx[1] = startx[1]+N1*dx[1];
 	stopx[2] = startx[2]+N2*dx[2];
 	stopx[3] = startx[3]+N3*dx[3];
 
-	th_beg = 0.0174;
+	th_cutout=0.0;//0.0174;
+	th_beg=th_cutout;
 	
 	fprintf(stdout,"size: %d %d %d M  gam=%g game=%g gamp=%g t=%g M mks_smooth=%g\n",N1,N2,N3,gam,game,gamp,t,mks_smooth);
 	fprintf(stdout,"---> a=%g Rout=%g hslope=%g \n",a,Rout,hslope);
@@ -793,15 +948,10 @@ int hdf5_read_array(void *data, const char *name, size_t rank,
     H5Sselect_hyperslab(filespace, H5S_SELECT_SET, fstart, NULL, fcount,NULL);
     hid_t memspace = H5Screate_simple(rank, mdims, NULL);
     H5Sselect_hyperslab(memspace, H5S_SELECT_SET, mstart, NULL, fcount,NULL);
-
     hid_t file_id ;
 
     file_id = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT);
 
-    //for test
-    //file_id = H5Fopen("SANE_a+0.94_288_0900_MKS.h5", H5F_ACC_RDONLY, H5P_DEFAULT);
-    
-    
     hid_t dset_id = H5Dopen(file_id, "prims"); //1.6 vs 1.8
     hid_t plist_id = H5Pcreate(H5P_DATASET_XFER);
     herr_t err = H5Dread(dset_id, hdf5_type, memspace, filespace, plist_id, data);
@@ -838,7 +988,7 @@ void init_harm3d_data(char *fname)
     MBH = 10;
 #endif
 	
-	MBH=MBH*MSUN;
+        MBH *= MSUN;
         L_unit = GNEWT * MBH / (CL * CL);
         T_unit = L_unit / CL;
 
@@ -890,12 +1040,16 @@ void init_harm3d_data(char *fname)
 	for(i = 1; i < N1+1; i++){
 	  for(j = 1; j < N2+1; j++){
 	    coord(i-1,j-1,0,X); //shift for ghost zones?
+	    
 	    gcov_func(X, gcov); // in system with cut off
 	    gcon_func(gcov, gcon);
 	    g = gdet_func(gcov);
-	    bl_coord(X, &r, &th);
+	    //bl_coord(X, &r, &th);
 	    for(k = 1; k < N3+1; k++){
 	      coord(i-1,j-1,k,X);
+	      
+
+
 	      //the four-vector reconstruction should have gcov and gcon and gdet using the modified coordinates
 	      //interpolating the four vectors to the zone center !!!!
 	      UdotU = 0.;
@@ -905,12 +1059,14 @@ void init_harm3d_data(char *fname)
 	      for(l = 1; l < NDIM; l++) ucon[i][j][k][l] = p[U1+l-1][i][j][k] - ufac*gcon[0][l];
 	      lower(ucon[i][j][k], gcov, ucov[i][j][k]);
 
+	      
 	      //reconstruct the magnetic field three vectors
 	      udotB = 0.;
 	      for(l = 1; l < NDIM; l++) udotB += ucov[i][j][k][l]*p[B1+l-1][i][j][k];
 	      bcon[i][j][k][0] = udotB;
 	      for(l = 1; l < NDIM; l++) bcon[i][j][k][l] = (p[B1+l-1][i][j][k] + ucon[i][j][k][l]*udotB)/ucon[i][j][k][0];
 	      lower(bcon[i][j][k], gcov, bcov[i][j][k]);
+	      
 
 	      if(i <= 21) dMact += g * p[KRHO][i][j][k] * ucon[i][j][k][1] ;
 	      if(i >= 20 && i < 40 ) Ladv += g * p[UU][i][j][k] * ucon[i][j][k][1] * ucov[i][j][k][0] ;
