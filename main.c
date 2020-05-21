@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
     freq = freqcgs * HPL / (ME * CL * CL);
 
     //camera position
-    rcam = 1000.; //default value
+    rcam = 10000.; //default value
     phicam = 0.0;
     Xcam[0] = 0.0;
     Xcam[1] = log(rcam);
@@ -90,8 +90,8 @@ int main(int argc, char *argv[])
     clock_t begin = clock();
 
 #pragma omp parallel for schedule(dynamic,1) collapse(2) shared(image,imageS,Xcam,fovx,fovy)
-    for (int i = 0; i < NX; i++) {
-      for (int j = 0; j < NY; j++) {
+     for (int i = 0; i < NX; i++) {
+       for (int j = 0; j < NY; j++) {
 
 	double X[NDIM], Kcon[NDIM], Xhalf[NDIM], Kconhalf[NDIM];    
 	struct of_traj {
@@ -116,10 +116,12 @@ int main(int argc, char *argv[])
 	double jI, jQ, jU, jV;
 	double aI, aQ, aU, aV;
 	double rV, rU, rQ;
-
+	int n_ring=-1;
+	
 	while (!stop_backward_integration(X, Kcon, Xcam)){
 	  
 	  double dl = stepsize(X, Kcon);
+	  double X2_p=X[2];
 	  push_photon(X, Kcon, -dl, Xhalf, Kconhalf);
 	  nstep++;
 
@@ -142,7 +144,18 @@ int main(int argc, char *argv[])
 	    break;
 	    }
 	  */
-
+	  
+	  //counds how many time a photon crosses equatorial plane, add order to image, only works for high i
+	  if( X2_p>0.5 && X[2]<0.5 || X2_p<0.5 && X[2]>0.5 ){ 
+	    n_ring += 1;
+	  }
+          //we can stop integration to see dirrent emission and no more
+	  /*
+	  if(n_ring == 1){
+	    break;
+	  }
+	  */
+	  
 	  //print a projection of geodesics on Cartesian space
 	  /*
 	  fprintf(stdout,"%g %g %g\n",
@@ -161,7 +174,7 @@ int main(int argc, char *argv[])
 
 	nstep--; /* final step violated the "stop" condition,so don't record it */
 	/* DONE geodesic integration */
-	
+
 	double Xi[NDIM], Xf[NDIM], Kconi[NDIM], Kconf[NDIM], ji, ki, jf, kf;
 	double col_v[NDIM];
 	double complex N_coord[NDIM][NDIM];
@@ -190,7 +203,7 @@ int main(int argc, char *argv[])
 	  //NT:if geodesics crosses the disk then, assign non-zero I
 	  double lrd_in=log(risco_calc(1));
 	  double lrd_out=log(100.);
-	  if ( fabs(cos(M_PI*Xf[2])) < 0.01 && (Xf[1] > lrd_in) && (Xf[1] < lrd_out) ){
+	  if( ( (Xi[2]>0.5 && Xf[2]<0.5) || (Xi[2]<0.5 && Xf[2]>0.5)) && (Xf[1] > lrd_in) && (Xf[1] < lrd_out) ){
 	      double r=exp(Xf[1]);
 	      double Teff;
 	      double Mdotedd = 4. * M_PI * GNEWT * 10.* MSUN* MP / 0.1 / CL / SIGMA_THOMSON;
@@ -228,6 +241,10 @@ int main(int argc, char *argv[])
 	}
 
 	/* deposit intensity, and Stokes parameters in pixels */
+	//if (n_ring < 1){
+	//if (n_ring >=1 && n_ring < 2){
+	//if (n_ring >= 2){
+
 	image[i][j] = Intensity * pow(freqcgs, 3);
 #if(POLARIZATION_ON)
 	double Stokes_I,Stokes_Q,Stokes_U,Stokes_V;
@@ -238,6 +255,7 @@ int main(int argc, char *argv[])
 	imageS[i][j][3] = Stokes_V * pow(freqcgs, 3);
 	col_var[i][j][0]=tauF;
 #endif
+	//}
 	
 	if (j==0) fprintf(stderr,"%d ",i); 
 	
@@ -284,10 +302,13 @@ int main(int argc, char *argv[])
     fp = fopen("output_ipole/ipole_sed.dat", "a");
     fprintf(fp, "nu Ftot nuLnu FtotI FtotQ FtotU FtotV: %g %g %g  %g %g %g %g  %g %g %g %g\n", 
 	    freqcgs, Ftot,  Ftot * Dsource * Dsource * JY * freqcgs * 4 * M_PI,
-	    FtotI,FtotQ,FtotU,FtotV,
+	    FtotI,
+	    -FtotQ,
+	    -FtotU,
+	    FtotV,
 	    FtotI * Dsource * Dsource * JY * freqcgs * 4 * M_PI,
-	    FtotQ * Dsource * Dsource * JY * freqcgs * 4 * M_PI,
-	    FtotU * Dsource * Dsource * JY * freqcgs * 4 * M_PI,
+	    -FtotQ * Dsource * Dsource * JY * freqcgs * 4 * M_PI,
+	    -FtotU * Dsource * Dsource * JY * freqcgs * 4 * M_PI,
 	    FtotV * Dsource * Dsource * JY * freqcgs * 4 * M_PI);
     fclose(fp);
 
@@ -416,7 +437,7 @@ void dump(double image[NX][NY], double imageS[NX][NY][NDIM], double col_varp[NX]
 	    
 	    //rotated QU according to IAU standards with +Q aligned with north
 	    // this is rotated !!!
-	    
+	    /*
 	    fprintf(fp, "%d %d %g %g %g %g %g  %g\n",
 		    i, j, 
 		    image[i][j]*scale,
@@ -426,9 +447,19 @@ void dump(double image[NX][NY], double imageS[NX][NY][NDIM], double col_varp[NX]
 		    imageS[i][j][3]*scale,
 		    col_varp[i][j][0]
 		    );
-
+	    */
+	    
+	    fprintf(fp, "%d %d %g %g %g %g\n",
+		    i, j, 
+		    imageS[i][j][0]*scale, 
+		    -imageS[i][j][1]*scale,
+		    -imageS[i][j][2]*scale, 
+		    imageS[i][j][3]*scale
+		    );
+	    
+	    
 	}
-	fprintf(fp, "\n");
+	//	fprintf(fp, "\n");
     }
     fclose(fp);
 
@@ -497,8 +528,10 @@ void init_XK(int i, int j, double Xcam[4], double fovx, double fovy,	/* field of
     double rotcam=0.0;//M_PI/2.;
     double xoff=0.0;
     double yoff=0.0;
+
     double dxoff=(xoff + i + 0.5 - 0.01)/NX -0.5;
     double dyoff=(yoff + j + 0.5)/NY -0.5;
+    
     Kcon_tetrad[0] = 0.;
     Kcon_tetrad[1] = (dxoff*cos(rotcam)-dyoff*sin(rotcam))*fovx;
     Kcon_tetrad[2] = (dxoff*sin(rotcam)+dyoff*cos(rotcam))*fovy;
