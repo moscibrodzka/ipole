@@ -68,7 +68,7 @@ ax.set_aspect('equal')
 # total intensity 
 ax = plt.subplot(2,2,1)
 z = np.reshape(Is, (ImRes,ImRes))
-plt.pcolormesh(i,j,z,cmap='afmhot', vmin=0., vmax=0.0007)
+plt.pcolormesh(i,j,z,cmap='afmhot', vmin=0., vmax=1.e-4)
 plt.colorbar()
 plt.title('Stokes I [cgs]')
 plt.axis([-20,20,-20,20])
@@ -79,6 +79,8 @@ Qb = sum(Qs)
 Ub = sum(Us)
 LP = np.sqrt(Qb*Qb + Ub*Ub)/sum(Is)
 print "LP [%]: ", LP*100.
+CHI = (180./3.14159)*0.5*np.arctan2(Ub,Qb)
+print "EVPA [deg]:",CHI
 CP = sum(Vs)/sum(Is)
 print "CP [%]: ", CP*100.
 amp = np.sqrt(Qs*Qs + Us*Us)
@@ -88,7 +90,7 @@ vxp = np.sqrt(Qs*Qs + Us*Us)*np.cos(evpa*3.14159/180.)/scal
 vyp = np.sqrt(Qs*Qs + Us*Us)*np.sin(evpa*3.14159/180.)/scal
 vx = np.reshape(vxp, (ImRes,ImRes))
 vy = np.reshape(vyp, (ImRes,ImRes))
-skip = 16
+skip = 4
 plt.quiver(i[::skip, ::skip],j[::skip, ::skip],vx[::skip, ::skip],vy[::skip, ::skip], 
 	headwidth=1, headlength=1, 
 	width=0.005,
