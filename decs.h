@@ -14,8 +14,9 @@
 #include <omp.h>
 #endif
 
+/* PARAMETERS TO CHANGE */
 
-//change to 1 when running Novikov-Thorne model
+//change both to 1 when running Novikov-Thorne model
 #define NT_PROB 0
 #define SOURCE_NT 0
 
@@ -23,7 +24,6 @@
 #define SOURCE_SGRA 1
 #define SOURCE_M87  0
 #define SOURCE_DABHB 0
-
 
 //image resolution
 #define NX  80
@@ -39,11 +39,11 @@
 #define KAPPAL  0
 
 //floor and ceiling of electron temperature, model dependent
-#define THETAE_MIN 1e-3
-#define THETAE_MAX 100.
+#define THETAE_MIN 0.001
+#define THETAE_MAX 100
 
-#define NPRIM	10 // 10 variables in hdf5 in fmks
-//#define NPRIM	8 // default
+#define NPRIM	8 // default
+//#define NPRIM	10 // 10 variables in hdf5 in fmks
 
 //chose integration scheme in ipolarray.c
 #define INT_FULL  0 //full integration step
@@ -54,10 +54,12 @@
 #define AFMHOT 1
 #define BW 0
 
+
 /********************** RATHER DO NOT CHANGE BELOW *************/
 
 #define MAXNSTEP        60000
 #define POLARIZATION_ON (1)
+
 
 /**************************** WARNING *************************/
 /********************** DO NOT CHANGE BELOW *******************/
