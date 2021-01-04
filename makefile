@@ -9,11 +9,15 @@ SRCIPO = \
 main.c image.c geodesics.c radiation.c tetrads.c ipolarray.c geometry.c \
 model_tetrads.c model_radiation.c model_geodesics.c \
 model_harm3d.c
+#model_NT.c
+
 
 OBJIPO = \
 main.o image.o geodesics.o radiation.o tetrads.o ipolarray.o geometry.o \
 model_tetrads.o model_radiation.o model_geodesics.o \
 model_harm3d.o
+#model_NT.o
+
 
 ipole: $(OBJIPO) makefile 
 	$(CC) $(CFLAGS) -o ipole $(OBJIPO) $(LDFLAGS)
