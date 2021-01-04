@@ -32,7 +32,6 @@ double rhorizon_calc(int pos_sign)
 
 
 //from Illinois group, coefficents needed to set up metric corrections for modified coodtinates FMKS
-//this seems correct
 #define MUNULOOP for(int mu=0;mu<NDIM;mu++) for(int nu=0;nu<NDIM;nu++)
 void set_dxdX(double X[NDIM], double dxdX[NDIM][NDIM])
 {

@@ -496,15 +496,4 @@ void set_levi_civita(double levi_civita[NDIM][NDIM][NDIM][NDIM])
 		    }
 		}
 
-    /* Test levi-civita : */
-    /*                              
-       for(i=0;i<NDIM;i++)  
-       for(j=0;j<NDIM;j++)  
-       for(k=0;k<NDIM;k++)  
-       for(l=0;l<NDIM;l++) {                         
-       fprintf(stdout,"levi-civita[%d%d%d%d] = %d \n", 
-       i,j,k,l,levi_civita[i][j][k][l] );                                                
-       fflush(stdout); 
-       }       
-     */
 }

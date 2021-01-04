@@ -93,22 +93,24 @@ void jar_calc(double X[NDIM], double Kcon[NDIM],
 					/* Faraday rotativities for thermal plasma */
 	Xe = Thetae * sqrt(S2 * sin(theta) * (1.e3 * omega0 / 2. / M_PI / nu));
 
-	//this is used normally
-	/*
-	*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
-	    (gsl_sf_bessel_Kn(0,1./Thetae) -Je(Xe)) / gsl_sf_bessel_Kn(2,1./Thetae) * cos(theta);
-	*/
-
-	//*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
+	// other possibilities
+        //original Dexter 2016 
+        //*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
 	//  (besselk_asym(0, Thetaer) - Je(Xe)) / besselk_asym(2, Thetaer) * cos(theta);
-
+	//with my correction
+	//*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
+	//    (gsl_sf_bessel_Kn(0,1./Thetae) -Je(Xe)) / gsl_sf_bessel_Kn(2,1./Thetae) * cos(theta);
+	//Hung and Scherbakov 2011 fit
+	//*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
+	//   gsl_sf_bessel_Kn(0, Thetaer) / (gsl_sf_bessel_Kn(2, Thetaer)+SMALL) * g(Xe) * cos(theta);
+	
 	//this is used for EHT-library only
 	if (Thetae > 3.0) {
 	    // High temperature: use approximations to bessel
 	    *rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
 		(besselk_asym(0, Thetaer) - Je(Xe)) / besselk_asym(2, Thetaer) * cos(theta);
 	} else if (0.2 < Thetae && Thetae <= 3.0) {
-	    // Mid temperature: use real bessel functions (TODO fit?)
+	    // Mid temperature: use real bessel functions 
 	    *rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
 		(gsl_sf_bessel_Kn(0, Thetaer) - Je(Xe)) / gsl_sf_bessel_Kn(2, Thetaer) * cos(theta);
 	} else if (Thetae <= 0.2) {
@@ -117,7 +119,7 @@ void jar_calc(double X[NDIM], double Kcon[NDIM],
 	}
 		
 	*rV *= nu;
-	
+	 
 	return;
 	
     } else {
@@ -142,17 +144,16 @@ void jar_calc(double X[NDIM], double Kcon[NDIM],
       *rU = 0.0;
 
       //original Dexter 2016 
-
       //*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
       //	(besselk_asym(0, Thetaer) - Je(Xe)) / besselk_asym(2, Thetaer) * cos(theta);
       //my correction
-      /*
-      *rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
-	  (gsl_sf_bessel_Kn(0,1./Thetae) - Je(Xe)) / gsl_sf_bessel_Kn(2,1./Thetae) * cos(theta);
-      */
+      //*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
+      //	  (gsl_sf_bessel_Kn(0,1./Thetae) - Je(Xe)) / gsl_sf_bessel_Kn(2,1./Thetae) * cos(theta);
+      //Hung and Scherbakov 2011 fit
+      //*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
+      //   gsl_sf_bessel_Kn(0, Thetaer) / (gsl_sf_bessel_Kn(2, Thetaer)+SMALL) * g(Xe) * cos(theta);  
       
       //this is used for EHT-library only
-      
       if (Thetae > 3.0) {
 	// High temperature: use approximations to bessel
 	*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
@@ -166,20 +167,17 @@ void jar_calc(double X[NDIM], double Kcon[NDIM],
 	*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) * cos(theta);
       }
       
-      
-      //Hung and Scherbakov fit
-      //*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
-      //   gsl_sf_bessel_Kn(0, Thetaer) / (gsl_sf_bessel_Kn(2, Thetaer)+SMALL) * g(Xe) * cos(theta);
+
       /* invariant rotativities */
       *rQ *= nu;
       *rV *= nu;
-
+      
       /* synchrotron emissivity */ 
       nuc = 3.0 * EE * B * sin(theta) / 4.0 / M_PI / ME / CL * Thetae * Thetae + 1.0;
       x = nu / nuc;
       
       *jI = Ne * EE * EE * nu / 2. / S3 / CL / Thetae / Thetae * I_I(x); // [g/s^2/cm = ergs/s/cm^3]
-      *jQ = Ne * EE * EE * nu / 2. / S3 / CL / Thetae / Thetae * I_Q(x); // here mistake in grtrans
+      *jQ = Ne * EE * EE * nu / 2. / S3 / CL / Thetae / Thetae * I_Q(x);
       *jU = 0.0;	                                        	 // convention; depends on tetrad
       *jV = 2. * Ne * EE * EE * nu / tan(theta) / 3. / S3 / CL / Thetae / Thetae / Thetae * I_V(x);
 
@@ -195,7 +193,7 @@ void jar_calc(double X[NDIM], double Kcon[NDIM],
       *aQ = *jQ / Bnuinv;
       *aU = *jU / Bnuinv;
       *aV = *jV / Bnuinv;
-     
+            
       return;
       
     }
@@ -263,30 +261,33 @@ void jar_calc_mixed_pl(double X[NDIM], double Kcon[NDIM],
 					/* Faraday rotativities for thermal plasma */
 	Xe = Thetae * sqrt(S2 * sin(theta) * (1.e3 * omega0 / 2. / M_PI / nu));
 
-	//	*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
-	//  (besselk_asym(0, Thetaer) - Je(Xe)) / besselk_asym(2, Thetaer) * cos(theta);
 
-	// used normally
-	*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
-	    (gsl_sf_bessel_Kn(0,1./Thetae) -Je(Xe)) / gsl_sf_bessel_Kn(2,1./Thetae) * cos(theta);
+	//original Dexter 2016
+	//*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
+	//        (besselk_asym(0, Thetaer) - Je(Xe)) / besselk_asym(2, Thetaer) * cos(theta);
+	//my correction
+	//*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
+	//          (gsl_sf_bessel_Kn(0,1./Thetae) - Je(Xe)) / gsl_sf_bessel_Kn(2,1./Thetae) * cos(theta);
+	//Hung and Scherbakov 2011 fit
+	//*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
+	//   gsl_sf_bessel_Kn(0, Thetaer) / (gsl_sf_bessel_Kn(2, Thetaer)+SMALL) * g(Xe) * cos(theta);
 
-	// used for EHT-library only
-	/*
+	//this is used for EHT-library only
 	if (Thetae > 3.0) {
 	    // High temperature: use approximations to bessel
 	    *rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
 		(besselk_asym(0, Thetaer) - Je(Xe)) / besselk_asym(2, Thetaer) * cos(theta);
 	} else if (0.2 < Thetae && Thetae <= 3.0) {
-	    // Mid temperature: use real bessel functions (TODO fit?)
+	    // Mid temperature: use real bessel functions 
 	    *rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
 		(gsl_sf_bessel_Kn(0, Thetaer) - Je(Xe)) / gsl_sf_bessel_Kn(2, Thetaer) * cos(theta);
 	} else if (Thetae <= 0.2) {
 	    // Use the constant low-temperature limit
 	    *rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) * cos(theta);
 	}
-	*/
-	
-	/* invariant rotativities */
+
+
+       /* invariant rotativities */
 	*rV *= nu;
 
 	return;
@@ -305,6 +306,8 @@ void jar_calc_mixed_pl(double X[NDIM], double Kcon[NDIM],
        /* Faraday rotativities for thermal plasma */
        Xe = Thetae * sqrt(S2 * sin(theta) * (1.e3 * omega0 / 2. / M_PI / nu));
 
+
+       
       /* Here I use approximate bessel functions to match rhoqv with grtrans */
       *rQ = 2. * M_PI * nu / 2. / CL * wp2 * omega0 * omega0 / pow(2 * M_PI * nu, 4) *
 	jffunc(Xe) * (besselk_asym(1, Thetaer) / besselk_asym(2, Thetaer) +
@@ -312,42 +315,40 @@ void jar_calc_mixed_pl(double X[NDIM], double Kcon[NDIM],
       
       *rU = 0.0;
 
-      //Dexter 2016
+      //original Dexter 2016
       //*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
-      //(besselk_asym(0, Thetaer) - Je(Xe)) / besselk_asym(2, Thetaer) * cos(theta);
-
-      // my correction, used normally
-      *rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
-	  (gsl_sf_bessel_Kn(0,1./Thetae) - Je(Xe)) / gsl_sf_bessel_Kn(2,1./Thetae) * cos(theta);
-
-
-      // used for EHT-library only
-      /*
+      //        (besselk_asym(0, Thetaer) - Je(Xe)) / besselk_asym(2, Thetaer) * cos(theta);
+      //my correction
+      //*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
+      //          (gsl_sf_bessel_Kn(0,1./Thetae) - Je(Xe)) / gsl_sf_bessel_Kn(2,1./Thetae) * cos(theta);
+      //Hung and Scherbakov 2011 fit
+      //*rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
+      //   gsl_sf_bessel_Kn(0, Thetaer) / (gsl_sf_bessel_Kn(2, Thetaer)+SMALL) * g(Xe) * cos(theta);
+      
+      //this is used for EHT-library only
       if (Thetae > 3.0) {
 	  // High temperature: use approximations to bessel
 	  *rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
 	      (besselk_asym(0, Thetaer) - Je(Xe)) / besselk_asym(2, Thetaer) * cos(theta);
       } else if (0.2 < Thetae && Thetae <= 3.0) {
-	  // Mid temperature: use real bessel functions (TODO fit?)
+	  // Mid temperature: use real bessel functions 
 	  *rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) *
 	      (gsl_sf_bessel_Kn(0, Thetaer) - Je(Xe)) / gsl_sf_bessel_Kn(2, Thetaer) * cos(theta);
       } else if (Thetae <= 0.2) {
 	  // Use the constant low-temperature limit
 	  *rV = 2.0 * M_PI * nu / CL * wp2 * omega0 / pow(2. * M_PI * nu, 3) * cos(theta);
       }
-      */
-      
+	
       /* invariant rotativities */
       *rQ *= nu;
       *rV *= nu;
-      
 
       /*synchrotron emissivity */
       nuc = 3.0 * EE * B * sin(theta) / 4.0 / M_PI / ME / CL * Thetae * Thetae + 1.0;
       x = nu / nuc;
 
       *jI = Ne * EE * EE * nu / 2. / S3 / CL / Thetae / Thetae * I_I(x); // [g/s^2/cm = ergs/s/cm^3]
-      *jQ = Ne * EE * EE * nu / 2. / S3 / CL / Thetae / Thetae * I_Q(x); // here mistake in grtrans
+      *jQ = Ne * EE * EE * nu / 2. / S3 / CL / Thetae / Thetae * I_Q(x); 
       *jU = 0.0;	                                        	 // convention; depends on tetrad
       *jV = 2. * Ne * EE * EE * nu / tan(theta) / 3. / S3 / CL / Thetae / Thetae / Thetae * I_V(x);
       
@@ -364,10 +365,11 @@ void jar_calc_mixed_pl(double X[NDIM], double Kcon[NDIM],
       *aU = *jU / Bnuinv;
       *aV = *jV / Bnuinv;
 
+      /////// NONTHERMAL TAIL /////////
       /* add some nonthermal component to thermal to form hybrid, gmin should be computed for given p*/
       double p=3.5;
       double eta=0.1;
-      double gmin=9.*Thetae; //approximately from solving eq.
+      double gmin=9.*Thetae; //this is a paramter that has to be evaluated
       double gmax=1e6;
       
       //add nonthermal emissivity, abs, adjust npl
@@ -413,7 +415,6 @@ void jar_calc_mixed_pl(double X[NDIM], double Kcon[NDIM],
       *aU += a_pl_U*nu;
       *aV += a_pl_V*nu;
       
-      
       /*add rotatativity for power-law*/
       double nub=EE*B/2./M_PI/ME/CL;
       double Cv=2.*(p+2.)/(p+1.);
@@ -427,7 +428,8 @@ void jar_calc_mixed_pl(double X[NDIM], double Kcon[NDIM],
     }
       
 }
-     
+
+
 
 /* invariant plasma emissivities/abs/rot in tetrad frame */
 /* for thermal and kappa distribution */
@@ -832,6 +834,8 @@ void jar_calc_mixed_kappa(double X[NDIM], double Kcon[NDIM],
 
 }
 
+
+
 /*emissivity functions and functions used for Faraday conversion and rotation*/
 /*from J. Dexter PhD thesis (checked with Leung harmony program, and Huang & Shcherbakov 2011*/
 double g(double Xe)
@@ -910,24 +914,15 @@ double besselk_asym(int n, double x)
 #undef S2
 #undef S3
 
-//optional
 int radiating_region(double X[4])
 {
-  
     double ne=get_model_ne(X);
-    //testing
-    //if( ne > 0. && X[1]<log(100.) && X[2] > th_beg/M_PI && X[2] < (1.-th_beg/M_PI) && X[2]>0.5) return(1);
-    //this is for vertical field
-    //if( ne>0.0 && X[1]<log(100.)) return(1);
-    //if( ne>0.0 && X[1]<log(100.) ) return(1);
-    //    if(ne >0.0 && X[1] < log(40.) && X[2]>startx[2] && X[2]<stopx[2] ) return(1); 
-    //    if(ne >0.0 && X[1]<log(100.) && X[2] > th_beg/M_PI && X[2] < (1.-th_beg/M_PI) ) return(1);
 #if(NT_PROB)
     return 0;
-#endif    
+#endif
     if(ne >0.0 && X[1]<log(1000.) && X[2] > th_beg/M_PI && X[2] < (1.-th_beg/M_PI) ) return(1);
+//    if(ne >0.0 && X[1]<log(100.)  ) return(1);
     else return(0);
-    
 }
 
 
@@ -948,27 +943,25 @@ double jnu_synch(double nu, double Ne, double Thetae, double B, double theta)
       //original
       //K2 = gsl_sf_bessel_Kn(2,1./Thetae);
       //K2 = 2.*Thetae*Thetae ;
-
-    nuc = EE*B/(2.*M_PI*ME*CL);
-    sth = sin(theta);
-    nus = (2./9.)*nuc*Thetae*Thetae*sth;
-    if (nu > 1.e12 * nus) return (0.);
-    x = nu / nus;
-    double xx,xp1;
-    xp1 = pow(x, 1. / 3.);
-    xx = sqrt(x) + pow(2.,11./12.) * sqrt(xp1);
-    f = xx * xx;
-    j = (M_SQRT2 * M_PI * EE * EE * Ne * nus / (3. * CL * K2)) * f *
-      exp(-xp1);
-
+      
+      nuc = EE*B/(2.*M_PI*ME*CL);
+      sth = sin(theta);
+      nus = (2./9.)*nuc*Thetae*Thetae*sth;
+      if (nu > 1.e12 * nus) return (0.);
+      x = nu / nus;
+      double xx,xp1;
+      xp1 = pow(x, 1. / 3.);
+      xx = sqrt(x) + pow(2.,11./12.) * sqrt(xp1);
+      f = xx * xx;
+      j = (M_SQRT2 * M_PI * EE * EE * Ne * nus / (3. * CL * K2)) * f *
+	  exp(-xp1);
     
-    return(j) ;
+      return(j) ;
 
 }
 
 
-//check them out.
-//from symphony 
+//from symphony code
 double jnu_synchSI(double nu, double Ne, double Thetae, double B,
 		   double theta)
 {
@@ -1026,9 +1019,8 @@ double jnu_synchSV(double nu, double Ne, double Thetae, double B,
 }
 
 
-/* get the invariant emissivity and opacity at a given position
-   for a given wavevector */
-
+/* get the invariant emissivity and opacity at a given position for a given wavevector */
+/* here only thermal plasma emissivities */
 void get_jkinv(double X[NDIM], double Kcon[NDIM], double *jnuinv,
 	       double *knuinv, double col_v[3])
 {
@@ -1041,7 +1033,6 @@ void get_jkinv(double X[NDIM], double Kcon[NDIM], double *jnuinv,
     Ne = get_model_ne(X);	/* check to see if we're outside fluid model */
     B = get_model_b(X);		/* field in G */
 
-//    if (Ne <= 0. || X[2] < th_beg/M_PI || X[2] > (1.-th_beg/M_PI) || X[1] > log(100.)) {
     if (Ne <= 0.){
       *jnuinv = 0.;
       *knuinv = 0.;
@@ -1076,80 +1067,6 @@ void get_jkinv(double X[NDIM], double Kcon[NDIM], double *jnuinv,
       	*knuinv = SMALL;
     else
       *knuinv = *jnuinv / Bnuinv;
-
-/////////////////////////
-
-    /* /\* add eta nonthermal particles in kappa distribution *\/ */
-    /* /\* paramters *\/ */
-    /* double w=Thetae; */
-    /* double kappa=4.0;  */
-    /* double eta=0.0; //by default it is zero */
-    /* //or bernoulli paramters */
-    /* double rho1=Ne/RHO_unit*(MP+ME); //dimentionless rho */
-    /* double uu=get_model_uu(X); */
-    /* double Be=-(1+uu/rho1*gam)*Ucov[0]; */
-
-    /* //    if(Be > 1.02) eta=0.1; //along the jet */
-    /* //    eta=0.01;//everywhere */
-
-    /* double nu_c=EE*B/(2.*M_PI*ME*CL) ; */
-
-    /* double nu_w = nu_c*pow(w*kappa,2.)*sin(theta); */
-    /* double X_k = nu/nu_w; */
-    /* double prefactor = (Ne* pow(EE, 2.) * nu_c */
-    /* 			* sin(theta))/CL; */
-    /* double Nlow = 4. * M_PI * tgamma(kappa-4./3.) */
-    /*   / (pow(3., 7./3.) * tgamma(kappa-2.)); */
-    /* double Nhigh = (1./4.) * pow(3., (kappa-1.)/2.) */
-    /*   * (kappa-2.) * (kappa-1.) */
-    /*   * tgamma(kappa/4.-1./3.) */
-    /*   * tgamma(kappa/4.+4./3.); */
-    /* double x = 3. * pow(kappa, -3./2.); */
-    /* double ans = prefactor * Nlow * pow(X_k, 1./3.) */
-    /* 	* pow(1.+pow(X_k, x * (3. * kappa-4.)/6.) */
-    /* 	      * pow(Nlow/Nhigh, x), -1./x); */
-
-    /* //joint distributions */
-    /* *jnuinv += eta*ans/nu/nu; */
-    
-    /* prefactor = Ne * EE  / (B * sin(theta)); */
-    /* double a = kappa - 1./3.; */
-    /* double b = kappa + 1.; */
-    /* double c = kappa + 2./3.; */
-    /* double z = -kappa*w; */
-    
-    /* /\* GSL 2F1 only works for |z| < 1; had to apply a hypergeometric function */
-    /*    identity because in our case z = -kappa*w, so |z| > 1 *\/ */
-        
-    /* double hyp2f1 = pow(1.-z, -a) * tgamma(c) * tgamma(b-a) */
-    /*   / (tgamma(b)*tgamma(c-a)) */
-    /*   * gsl_sf_hyperg_2F1(a, c-b, a-b+1., 1./(1.-z)) */
-    /*   + pow(1.-z, -b) * tgamma(c) * tgamma(a-b) */
-    /*   / (tgamma(a) * tgamma(c-b)) */
-    /*   * gsl_sf_hyperg_2F1(b, c-a, b-a+1., 1./(1.-z)); */
-    
-    /* Nlow = pow(3., 1./6.) * (10./41.) * pow(2. * M_PI, 2.) */
-    /*   / pow(w * kappa, 16./3.-kappa) */
-    /*   * (kappa-2.) * (kappa-1.) * kappa */
-    /*   / (3.*kappa-1.) * tgamma(5./3.) * hyp2f1; */
-    
-    /* Nhigh = 2. * pow(M_PI, 5./2.)/3. * (kappa-2.) */
-    /*   * (kappa-1.) * kappa */
-    /*   / pow(w * kappa, 5.) */
-    /*   * (2 * tgamma(2. + kappa/2.) */
-    /* 	 / (2.+kappa)-1.) */
-    /*   * (pow(3./kappa, 19./4.) + 3./5.); */
-    
-    /* x = pow(-7./4. + 8. * kappa/5., -43./50.); */
-
-    /* ans = prefactor * Nlow * pow(X_k, -5./3.) */
-    /*   * pow(1. + pow(X_k, x * (3. * kappa-1.)/6.) */
-    /* 	    * pow(Nlow/Nhigh, x), -1./x); */
-
-    /* //joint distributions */
-    /* *knuinv += eta*ans*nu; */
-   
-////////////////////////
 
     if (isnan(*jnuinv) || isnan(*knuinv)) {
 	fprintf(stderr, "\nisnan get_jkinv\n");

@@ -34,8 +34,6 @@ double rhorizon_calc(int pos_sign)
 }
 
 //function from IL group, coefficents needed to set up metric corrections for modified coodtinates 
-//this seems correct
-
 #define MUNULOOP for(int mu=0;mu<NDIM;mu++) for(int nu=0;nu<NDIM;nu++)
 void set_dxdX(double X[NDIM], double dxdX[NDIM][NDIM])
 {
@@ -137,16 +135,11 @@ void get_connection(double X[NDIM], double lconn[NDIM][NDIM][NDIM])
     sx = sin(2.*M_PI*X[2]);
     cx = cos(2.*M_PI*X[2]);
   
-    /* HARM-2D MKS */
-    //th = M_PI*X[2] + 0.5*(1-hslope)*sx;
-    //dthdx2 = M_PI*(1.+(1-hslope)*cx);
-    //d2thdx22 = -2.*M_PI*M_PI*(1-hslope)*sx;
-  
     /* HARM-3D MKS */
     th =  M_PI*X[2] + hslope*sx;
     dthdx2 = M_PI + 2.*M_PI*hslope*cx;
     d2thdx22 = -4.*M_PI*M_PI*hslope*sx;	/* d^2(th)/dx2^2 */
-
+    
   
     dthdx22 = dthdx2*dthdx2;
 	
@@ -511,15 +504,6 @@ void interp_fourv(double X[NDIM], double ****fourv, double Fourv[NDIM]){
 	Fourv[2] = b3*Fourv[2] + del[3]*(d1*fourv[i][j][kp1][2] + d2*fourv[i][jp1][kp1][2] + d3*fourv[ip1][j][kp1][2] + d4*fourv[ip1][jp1][kp1][2]);
 	Fourv[3] = b3*Fourv[3] + del[3]*(d1*fourv[i][j][kp1][3] + d2*fourv[i][jp1][kp1][3] + d3*fourv[ip1][j][kp1][3] + d4*fourv[ip1][jp1][kp1][3]);
 
-	//new
-	//no interpolation of vectors at all
-	/*
-	Fourv[0]=fourv[i][j][k][0];
-	Fourv[1]=fourv[i][j][k][1];
-	Fourv[2]=fourv[i][j][k][2];
-	Fourv[3]=fourv[i][j][k][3];
-	*/
-
 }
 
 /* return	 scalar in cgs units */
@@ -555,8 +539,6 @@ double interp_scalar(double X[NDIM], double ***var)
 		  var[ip1][j  ][kp1]*del[1]*b2 +
 		  var[ip1][jp1][kp1]*del[1]*del[2]);
 	
-	//new, no interpolations whatsoever
-	//interp=var[i][j][k];
 
 	return(interp);
 
@@ -579,17 +561,16 @@ void Xtoijk(double X[NDIM], int *i, int *j, int *k, double del[NDIM])
 	if(phi < 0.0) phi = stopx[3]+phi;
 	
 	//give index of a zone - zone index is moved to the grid zone center/
-	//to account for the fact that all variables are reconstrucuted at zone centers?
 	*i = (int) ((X[1] - startx[1]) / dx[1] - 0.5 + 1000) - 1000;
 	*j = (int) ((X[2] - startx[2]) / dx[2] - 0.5 + 1000) - 1000;
 	*k = (int) ((phi  - startx[3]) / dx[3] - 0.5 + 1000) - 1000;	
 
-	//this makes sense, interpolate with outflow condition
+
 	if(*i < 0) {
 	  *i = 0 ;
 	  del[1] = 0. ;
 	}
-	else if(*i > N1-2) { //OK because del[1]=1 and only terms with ip1=N1-1 will be important in interpolation
+	else if(*i > N1-2) {
 	  *i = N1-2 ;
 	  del[1] = 1. ;
 	}
@@ -660,7 +641,7 @@ void set_units(char *munitstr)
     MBH = MABHB;
 #endif
 #if(SOURCE_NT)
-    MBH = 1;
+    MBH = 10;
 #endif
 
 	sscanf(munitstr,"%lf",&M_unit) ;
@@ -705,38 +686,21 @@ void init_physical_quantities(void)
 	      b[i][j][k] = sqrt(bsq)*B_unit ;
 	      sigma_m=bsq/p[KRHO][i][j][k] ;
 
-	      /* isothermal jet Moscibrodzka Falcke 2013, Moscibrodzka+2014*/
-	      /*
-		double Be = -(1.+ p[UU][i][j][k]/p[KRHO][i][j][k]*gam)*ucov[i][j][k][0];
-		if(Be>=1.02) thetae[i][j][k] = 20.;
-	      */
-
 	      /* beta presciption Moscibrodzka et al. 2016, 2017*/
 	      beta=p[UU][i][j][k]*(gam-1.)/0.5/bsq;
 	      b2=pow(beta,2);
 	      trat = trat_d * b2/(1. + b2) + trat_j /(1. + b2);
-//	      Thetae_unit= (MP / ME) * 2./(2.+trat) * (gam-1.);
+	      //Thetae_unit= (MP / ME) * 2./(2.+trat) * (gam-1.);
 	      Thetae_unit = (gam - 1.) * (MP / ME) / trat;
 	      thetae[i][j][k] = (p[UU][i][j][k]/p[KRHO][i][j][k])* Thetae_unit;
 
-	      /* in case electron temperatures are available in grmhd file*/
-	      /*
-	      game=4./3.;
-	      gamp=5./3.;
-	      Te=pow(p[KRHO][i][j][k],game-1)*p[KEL][i][j][k];
-	      ue=Te/(game-1)*p[KRHO][i][j][k];
-	      Tp=(gamp-1)*(p[UU][i][j][k]-ue)/p[KRHO][i][j][k];
-	      thetae[i][j][k]=(MP/ME)*Te;
-	      */
-
 	      /* floor and ceiling on temp */
-	      //thetae[i][j][k]=MAX(thetae[i][j][k],THETAE_MIN);
-	      //thetae[i][j][k]=MIN(thetae[i][j][k],THETAE_MAX);
+	      thetae[i][j][k]=MAX(thetae[i][j][k],THETAE_MIN);
+	      thetae[i][j][k]=MIN(thetae[i][j][k],THETAE_MAX);
 
-	      //opttional
 	      ne[i][j][k] = p[KRHO][i][j][k] * RHO_unit/(MP+ME) ;
-	      if(thetae[i][j][k] > 100.0) ne[i][j][k]=0.0;
-
+	      if(thetae[i][j][k] > 100.0) ne[i][j][k]=0.0;	     
+	      
 	      //apply sigma cut
 	      if(sigma_m > sigma_cut) {
 		  ne[i][j][k]=0.0;
@@ -959,7 +923,7 @@ void init_harm3d_data(char *fname)
     MBH = MABHB;
 #endif
 #if(SOURCE_NT)
-    MBH = 1;
+    MBH = 10;
 #endif
 
 	MBH=MBH*MSUN;
@@ -980,12 +944,6 @@ void init_harm3d_data(char *fname)
 	H5LTread_dataset_double(file_id, "B1",	&(p[B1][0][0][0]));
 	H5LTread_dataset_double(file_id, "B2",	&(p[B2][0][0][0]));
 	H5LTread_dataset_double(file_id, "B3",	&(p[B3][0][0][0]));
-
-	//in case if electron temperature is available in the grmhd file
-	/*
-	H5LTread_dataset_double(file_id, "KEL",	&(p[KEL][0][0][0]));
-	H5LTread_dataset_double(file_id, "KTOT",&(p[KTOT][0][0][0]));
-	*/
 
 	H5Fclose(file_id);
 	X[0] = 0.;
@@ -1026,18 +984,6 @@ void init_harm3d_data(char *fname)
 
 	      if(i <= 20) dMact += g * p[KRHO][i][j][k] * ucon[i][j][k][1] ;
 	      if(i >= 20 && i < 40) Ladv += g * p[UU][i][j][k] * ucon[i][j][k][1] * ucov[i][j][k][0] ;
-
-	      //compute dimentionless T^r_phi over phi and theta
-	      /*
-	      if ( i == (N1-2) ){
-		BSQ=bcon[i][j][k][0]*bcov[i][j][k][0]+
-		  bcon[i][j][k][1]*bcov[i][j][k][1]+
-		  bcon[i][j][k][2]*bcov[i][j][k][2]+
-		  bcon[i][j][k][3]*bcov[i][j][k][3];
-		Trphi =  (p[KRHO][i][j][k]+gam*p[UU][i][j][k]+BSQ)*ucon[i][j][k][1]*ucov[i][j][k][3]-bcon[i][j][k][1]*bcov[i][j][k][3] ;
-		dotJ += Trphi*g*dx[2]*dx[3];
-	      }
-	      */
 	      
 	    }
 	  }
@@ -1047,20 +993,6 @@ void init_harm3d_data(char *fname)
 	dMact /= 21. ;
 	Ladv *= dx[3]*dx[2] ;
 	Ladv /= 21. ;
-
-	/*some stuff used in Moscibrodzka 2019*/
-	/*
-	double Mstar=0.4*MSUN;
-	double Jorb= (Mstar*MBH)/(Mstar+MBH)*sqrt(GNEWT*(MBH+Mstar)*3.79*RSUN); //this is in cgs for sure
-	fprintf(stderr,"Jorb:%g [gcm2/s]\n",Jorb) ;
-	*/
-	/*
-	fprintf(stderr,"dotJ: %g [code]\n",dotJ) ;
-	double dotJ_unit=M_unit*pow(L_unit,2)/pow(T_unit,2); 
-	dotJ *= dotJ_unit; 
-	fprintf(stderr,"dotJ: %g [gcm2/s2] \n",dotJ);
-	exit(1);
-	*/
 
 	fprintf(stderr,"dMact: %g [code]\n",dMact) ;
 	fprintf(stderr,"Ladv: %g [code]\n",Ladv) ;

@@ -3,7 +3,6 @@
 #include <omp.h>
 #include <time.h>
 
-
 /*shared*/
 double image[NX][NY];
 double imageS[NX][NY][NDIM];
@@ -42,14 +41,13 @@ int main(int argc, char *argv[])
     sscanf(argv[6], "%lf", &trat_d);
     sscanf(argv[7], "%lf", &sigma_cut);
 #endif
-    
 
     //initiate model and photon frequency
     init_model(argv);
     freq = freqcgs * HPL / (ME * CL * CL);
 
     //camera position
-    rcam = 10000.; //default value
+    rcam = 10000.; // default value
     phicam = 0.0;
     Xcam[0] = 0.0;
     Xcam[1] = log(rcam);
@@ -57,7 +55,9 @@ int main(int argc, char *argv[])
     Xcam[2] = root_find2(x);
     Xcam[3] = phicam;
     fprintf(stdout,"camera coordinates: %g %g %g %g \n",Xcam[0],Xcam[1],Xcam[2],Xcam[3]);
-
+    double r,th;
+    bl_coord(Xcam,&r,&th);
+    fprintf(stdout,"camera theta=: %g \n",th/M_PI*180.);                                                                                                           
     
 #if(SOURCE_SGRA)
     Dsource = DSGRA;
@@ -73,9 +73,6 @@ int main(int argc, char *argv[])
 #endif
 
     //to chose image FOV in uas one has to uncomment this and problably next
-    //DX=160.0/(L_unit/Dsource * 2.06265e11);
-    //DY=160.0/(L_unit/Dsource * 2.06265e11);
-    
     fovx = DX / rcam;
     fovy = DY / rcam;
     scale = (DX * L_unit / NX) * (DY * L_unit / NY) / (Dsource * Dsource) / JY;
@@ -86,12 +83,13 @@ int main(int argc, char *argv[])
     fprintf(stderr,"FOVx, FOVy: %g %g [GM/c^2]\n",DX,DY);
     fprintf(stderr,"FOVx, FOVy: %g %g [rad]\n",DX*L_unit/Dsource,DY*L_unit/Dsource);
     fprintf(stderr,"FOVx, FOVy: %g %g [muas]\n",DX*L_unit/Dsource * 2.06265e11 ,DY*L_unit/Dsource * 2.06265e11);
-
+    
     clock_t begin = clock();
 
+
 #pragma omp parallel for schedule(dynamic,1) collapse(2) shared(image,imageS,Xcam,fovx,fovy)
-     for (int i = 0; i < NX; i++) {
-       for (int j = 0; j < NY; j++) {
+    for (int i = 0; i < NX; i++) {
+      for (int j = 0; j < NY; j++) {
 
 	double X[NDIM], Kcon[NDIM], Xhalf[NDIM], Kconhalf[NDIM];    
 	struct of_traj {
@@ -116,7 +114,8 @@ int main(int argc, char *argv[])
 	double jI, jQ, jU, jV;
 	double aI, aQ, aU, aV;
 	double rV, rU, rQ;
-	int n_ring=-1;
+	int n_ring=0;
+	double dxdX[NDIM][NDIM];
 	
 	while (!stop_backward_integration(X, Kcon, Xcam)){
 	  
@@ -130,40 +129,6 @@ int main(int argc, char *argv[])
 	  for (int l = 0; l < NDIM; l++) traj[nstep].Kcon[l] = Kcon[l];
 	  for (int l = 0; l < NDIM; l++) traj[nstep].Xhalf[l] = Xhalf[l];
 	  for (int l = 0; l < NDIM; l++) traj[nstep].Kconhalf[l] = Kconhalf[l];
-
-	  //call jar here to compute cumulative tauF,tauI,tauQ
-	  /* jar_calc(X, Kcon, &jI, &jQ, &jU, &jV,&aI, &aQ, &aU, &aV, &rQ, &rU, &rV); */
-	  /* tauFn+= fabs(rV)*dl*L_unit * HPL / (ME * CL * CL); */
-	  /* tauI+= fabs(aI)*dl*L_unit * HPL / (ME * CL * CL); */
-	  /* tauQ+= fabs(aQ)*dl*L_unit * HPL / (ME * CL * CL); */
-	  /* l+=dl *230e9 * HPL / (ME * CL * CL); */
-
-	  /*break integration for high Faraday thickness*/
-	  /*
-	    if(tauFn > 1.0){
-	    break;
-	    }
-	  */
-	  
-	  //counds how many time a photon crosses equatorial plane, add order to image, only works for high i
-	  if( X2_p>0.5 && X[2]<0.5 || X2_p<0.5 && X[2]>0.5 ){ 
-	    n_ring += 1;
-	  }
-          //we can stop integration to see dirrent emission and no more
-	  /*
-	  if(n_ring == 1){
-	    break;
-	  }
-	  */
-	  
-	  //print a projection of geodesics on Cartesian space
-	  /*
-	  fprintf(stdout,"%g %g %g\n",
-		  exp(X[1])*sin(X[2]*M_PI)*cos(X[3]*M_PI),
-		  exp(X[1])*sin(X[2]*M_PI)*sin(X[3]*M_PI),
-		  exp(X[1])*cos(X[2]*M_PI)
-		  );
-	  */
 	  
 	  if (nstep > MAXNSTEP - 2) {
 	    fprintf(stderr, "MAXNSTEP exceeded on j=%d i=%d\n", j,i);
@@ -230,8 +195,8 @@ int main(int argc, char *argv[])
 #endif	  
 	
 #if(POLARIZATION_ON)
-	  /* solve polarized transport */
-	  evolve_N(Xi, Kconi, Xhalf, Kconhalf, Xf, Kconf, traj[nstep].dl, N_coord, &tauF);
+	      /* solve polarized transport */
+	      evolve_N(Xi, Kconi, Xhalf, Kconhalf, Xf, Kconf, traj[nstep].dl, N_coord, &tauF);
 #endif
 	  /* swap start and finish */
 	  ji = jf;
@@ -239,12 +204,7 @@ int main(int argc, char *argv[])
 	  
 	  nstep--;
 	}
-
-	/* deposit intensity, and Stokes parameters in pixels */
-	//if (n_ring < 1){
-	//if (n_ring >=1 && n_ring < 2){
-	//if (n_ring >= 2){
-
+	  
 	image[i][j] = Intensity * pow(freqcgs, 3);
 #if(POLARIZATION_ON)
 	double Stokes_I,Stokes_Q,Stokes_U,Stokes_V;
@@ -255,8 +215,8 @@ int main(int argc, char *argv[])
 	imageS[i][j][3] = Stokes_V * pow(freqcgs, 3);
 	col_var[i][j][0]=tauF;
 #endif
-	//}
-	
+
+
 	if (j==0) fprintf(stderr,"%d ",i); 
 	
       } 
@@ -296,26 +256,11 @@ int main(int argc, char *argv[])
     fprintf(stderr, "Ftot: %g %g %g %g scale=%g\n", freqcgs, Ftot,  Ftot * Dsource * Dsource * JY * freqcgs * 4 * M_PI, 
 	    Dsource * Dsource * JY  * 4 * M_PI, scale);
 
-    
-    
-    //open file append with all data
-    fp = fopen("output_ipole/ipole_sed.dat", "a");
-    fprintf(fp, "nu Ftot nuLnu FtotI FtotQ FtotU FtotV: %g %g %g  %g %g %g %g  %g %g %g %g\n", 
-	    freqcgs, Ftot,  Ftot * Dsource * Dsource * JY * freqcgs * 4 * M_PI,
-	    FtotI,
-	    -FtotQ,
-	    -FtotU,
-	    FtotV,
-	    FtotI * Dsource * Dsource * JY * freqcgs * 4 * M_PI,
-	    -FtotQ * Dsource * Dsource * JY * freqcgs * 4 * M_PI,
-	    -FtotU * Dsource * Dsource * JY * freqcgs * 4 * M_PI,
-	    FtotV * Dsource * Dsource * JY * freqcgs * 4 * M_PI);
-    fclose(fp);
-
     /* image, dump result */
     make_ppm(image, freq, "output_ipole/ipole_fnu.ppm");
     dump(image, imageS, col_var, "output_ipole/ipole.dat", scale);
-    make_txt(image,imageS,freqcgs,"output_ipole/ipole_ehtim.txt",DX*L_unit/Dsource * 206264806247.1,DY*L_unit/Dsource * 206264806247.1,scale);
+
+    //make_txt(image,imageS,freqcgs,"output_ipole/ipole_ehtim.txt",DX*L_unit/Dsource * 206264806247.1,DY*L_unit/Dsource * 206264806247.1,scale);
     for (int i = 0; i < NX; i++)
 	for (int j = 0; j < NY; j++)
 	    image[i][j] = log(image[i][j] + 1.e-50);
@@ -328,7 +273,7 @@ int main(int argc, char *argv[])
 
 
 /* dump-file for ehtim library */
-/* here FOV is in miuarcseconds here */
+/* here FOV is in miuarcseconds */
 void make_txt(double image[NX][NY],double imageS[NX][NY][NDIM], double freqcgs, char *fname, double FOVX, double FOVY, double scale)
 {
 
@@ -341,7 +286,7 @@ void make_txt(double image[NX][NY],double imageS[NX][NY][NDIM], double freqcgs, 
     exit(125);
   }
 
-  /* write out header information */
+  /* write out header information, has to be changed for other sources */
   fprintf(fp,"# SRC: M87\n");
   fprintf(fp,"# RA: 12 h 30 m 49.4234 s\n");
   fprintf(fp,"# DEC: 12 deg 23 m 28.0437 s\n");
@@ -358,12 +303,9 @@ void make_txt(double image[NX][NY],double imageS[NX][NY][NDIM], double freqcgs, 
 #endif
   fflush(fp);
 #if(POLARIZATION_ON)
-
   for (j = NY; j > 0; j--)
     for (i = 0; i < NX; i++)
       {
-	//        fprintf(fp,"%15.10g %15.10g %15.10g %15.10g %15.10g \n",
-	//        fprintf(fp,"%g %g %g %g %g \n",
 	fprintf(fp,"%.10f %.10f %g %g %g %g\n",
 		(i-NX/2)*FOVX*1e-6/(double)NX,
                 (-j+NY/2)*FOVY*1e-6/(double)NY,
@@ -371,7 +313,6 @@ void make_txt(double image[NX][NY],double imageS[NX][NY][NDIM], double freqcgs, 
                 imageS[i][j][1]*scale,
                 imageS[i][j][2]*scale,
 		imageS[i][j][3]*scale);
-        //so here I dump the Stokes I,Q and U and skip V for now,here stokes parameters are in [jansky/pix2]                                                          
       }
 #else
   for (j = NY; j > 0; j--)
@@ -381,7 +322,6 @@ void make_txt(double image[NX][NY],double imageS[NX][NY][NDIM], double freqcgs, 
                 (i-NX/2)*FOVX*1e-6/(double)NX,
 		(-j+NY/2)*FOVY*1e-6/(double)NY,
                 image[i][j]*scale);
-        //so if the code runs in the unpolarized mode then just dump Intensity                                                                                                                
       }
 #endif
 
@@ -412,32 +352,7 @@ void dump(double image[NX][NY], double imageS[NX][NY][NDIM], double col_varp[NX]
 	for (j = 0; j < NY; j++) {
 	    sum_i += image[i][j];
 	    
-	    /*
-	    	    fprintf(fp, "%d %d %15.10g %15.10g %15.10g %15.10g %15.10g %15.10g %15.10g %15.10g \n",
-	    	    i, j, image[i][j]*scale, imageS[i][j][0]*scale, imageS[i][j][1]*scale,
-			    imageS[i][j][2]*scale, imageS[i][j][3]*scale,
-			    col_var[i][j][0],
-			    col_var[i][j][1],
-			    col_var[i][j][2]);
-	    */
-
-	    //	    fprintf(fp, "%d %d %15.10g %15.10g %15.10g %15.10g %15.10g \n", 
-
-	    //unrotated but consisitent with my plotting routine
-	    /*
-	    fprintf(fp, "%d %d %g %g %g %g %g \n",
-		    i, j, 
-		    image[i][j]*scale,
-		    imageS[i][j][0]*scale, 
-		    imageS[i][j][1]*scale,
-		    imageS[i][j][2]*scale, 
-		    imageS[i][j][3]*scale
-		    );
-	    */
-	    
 	    //rotated QU according to IAU standards with +Q aligned with north
-	    // this is rotated !!!
-	    /*
 	    fprintf(fp, "%d %d %g %g %g %g %g  %g\n",
 		    i, j, 
 		    image[i][j]*scale,
@@ -447,19 +362,7 @@ void dump(double image[NX][NY], double imageS[NX][NY][NDIM], double col_varp[NX]
 		    imageS[i][j][3]*scale,
 		    col_varp[i][j][0]
 		    );
-	    */
-	    
-	    fprintf(fp, "%d %d %g %g %g %g\n",
-		    i, j, 
-		    imageS[i][j][0]*scale, 
-		    -imageS[i][j][1]*scale,
-		    -imageS[i][j][2]*scale, 
-		    imageS[i][j][3]*scale
-		    );
-	    
-	    
 	}
-	//	fprintf(fp, "\n");
     }
     fclose(fp);
 
@@ -525,7 +428,7 @@ void init_XK(int i, int j, double Xcam[4], double fovx, double fovy,	/* field of
     /* construct *outgoing* wavevectors */
 
     /* EHT library */
-    double rotcam=0.0;//M_PI/2.;
+    double rotcam=0.0;
     double xoff=0.0;
     double yoff=0.0;
 
@@ -537,26 +440,6 @@ void init_XK(int i, int j, double Xcam[4], double fovx, double fovy,	/* field of
     Kcon_tetrad[2] = (dxoff*sin(rotcam)+dyoff*cos(rotcam))*fovy;
     Kcon_tetrad[3] = 1.;
     
-    
-    /* original */
-    /*
-    Kcon_tetrad[0] = 0.;
-    Kcon_tetrad[1] = (i / ((double) NX) - 0.5) * fovx;
-    Kcon_tetrad[2] = (j / ((double) NY) - 0.5) * fovy;
-    Kcon_tetrad[3] = 1.;
-    */
-
-    /*for VR movies*/
-    /*
-    double phi= -i*(M_PI*2.0)/((double)NX); // 2xNY, we divide in phi into more points                                   
-    double th = j*(M_PI)/((double)NY)-M_PI/2.;
-    
-    Kcon_tetrad[0]=0.0;
-    Kcon_tetrad[1]=cos(phi)*cos(th);
-    Kcon_tetrad[2]=sin(th);
-    Kcon_tetrad[3]=sin(phi)*cos(th);
-    */
-
     /* normalize */
     null_normalize(Kcon_tetrad, 1.);
 

@@ -15,9 +15,9 @@
 		get_connection
 */
 
-//chose coordinates
-#define FMKS 0
-#define MKS 1
+//chose coordinates and be careful !
+#define FMKS 1
+#define MKS 0
 
 //Kerr metric only
 double risco_calc( int do_prograde )
@@ -40,7 +40,6 @@ double rhorizon_calc(int pos_sign)
 }
 
 //function from IL group, coefficents needed to set up metric corrections for modified coodtinates 
-//this seems correct
 #define MUNULOOP for(int mu=0;mu<NDIM;mu++) for(int nu=0;nu<NDIM;nu++)
 void set_dxdX(double X[NDIM], double dxdX[NDIM][NDIM])
 {
@@ -74,7 +73,7 @@ void set_dxdX(double X[NDIM], double dxdX[NDIM][NDIM])
   dxdX[3][3] = 1.;
 #endif
   
-//sane test
+//for MKS
 #if(MKS)
   dxdX[0][0] = 1.;
   dxdX[1][1] = exp(X[1]);
@@ -142,12 +141,12 @@ void get_connection(double X[NDIM], double lconn[NDIM][NDIM][NDIM])
 {
 
     /* for these coordinates it is safer to go numerically */
-#if(MKS)
+#if(FMKS)
   get_connection_num(X,lconn);
 #endif
   
 
-#if(FMKS)  
+#if(MKS)  
     double r1,r2,r3,r4,sx,cx;
     double th,dthdx2,dthdx22,d2thdx22,sth,cth,sth2,cth2,sth4,cth4,s2th,c2th;
     double a2,a3,a4,rho2,irho2,rho22,irho22,rho23,irho23,irho23_dthdx2;
@@ -160,11 +159,6 @@ void get_connection(double X[NDIM], double lconn[NDIM][NDIM][NDIM])
   
     sx = sin(2.*M_PI*X[2]);
     cx = cos(2.*M_PI*X[2]);
-  
-    /* HARM-2D MKS */
-    //th = M_PI*X[2] + 0.5*(1-hslope)*sx;
-    //dthdx2 = M_PI*(1.+(1-hslope)*cx);
-    //d2thdx22 = -2.*M_PI*M_PI*(1-hslope)*sx;
   
     /* HARM-3D MKS */
     th =  M_PI*X[2] + hslope*sx;
@@ -537,14 +531,6 @@ void interp_fourv(double X[NDIM], double ****fourv, double Fourv[NDIM]){
 	Fourv[2] = b3*Fourv[2] + del[3]*(d1*fourv[i][j][kp1][2] + d2*fourv[i][jp1][kp1][2] + d3*fourv[ip1][j][kp1][2] + d4*fourv[ip1][jp1][kp1][2]);
 	Fourv[3] = b3*Fourv[3] + del[3]*(d1*fourv[i][j][kp1][3] + d2*fourv[i][jp1][kp1][3] + d3*fourv[ip1][j][kp1][3] + d4*fourv[ip1][jp1][kp1][3]);
 
-	//new
-	//no interpolation of vectors at all
-	/*
-	Fourv[0]=fourv[i][j][k][0];
-	Fourv[1]=fourv[i][j][k][1];
-	Fourv[2]=fourv[i][j][k][2];
-	Fourv[3]=fourv[i][j][k][3];
-	*/
 }
 
 /* return	 scalar in cgs units */
@@ -584,10 +570,6 @@ double interp_scalar(double X[NDIM], double ***var)
 		  var[ip1][j  ][kp1]*del[1]*b2 +
 		  var[ip1][jp1][kp1]*del[1]*del[2]);
 	
-	//new, no interpolations what so ever
-	//interp=var[i][j][k];
-	/* use bilinear interpolation to find rho; piecewise constant
-	   near the boundaries */
 	
 	return(interp);
 
@@ -730,8 +712,8 @@ void init_physical_quantities(void)
 	      beta=p[UU][i][j][k]*(gam-1.)/0.5/bsq;
 	      b2=beta*beta;
 	      trat = trat_d * b2/(1. + b2) + trat_j /(1. + b2);
-	      //Thetae_unit = (MP/ME) * (game-1.) * (gamp-1.) / ( (gamp-1.) + (game-1.)*trat );
-	      Thetae_unit=2.*MP/15./ME;
+	      Thetae_unit = (MP/ME) * (game-1.) * (gamp-1.) / ( (gamp-1.) + (game-1.)*trat );
+	      //Thetae_unit=2.*MP/15./ME; //this is for a test
 	      thetae[i][j][k] = (p[UU][i][j][k]/p[KRHO][i][j][k])* Thetae_unit;
 	      thetae[i][j][k] = MAX(thetae[i][j][k], THETAE_MIN);
 	      ne[i][j][k] = p[KRHO][i][j][k] * RHO_unit/(MP+ME) ;
@@ -872,10 +854,9 @@ void init_storage(void)
 	return;
 }
 
-/* HDF5 v1.6 API */
+
 //#include <H5LT.h>
 
-/* HDF5 v1.8 API */
 #include <hdf5.h>
 #include <hdf5_hl.h>
 
@@ -926,8 +907,9 @@ void init_harm3d_grid(char *fname)
 	stopx[1] = startx[1]+N1*dx[1];
 	stopx[2] = startx[2]+N2*dx[2];
 	stopx[3] = startx[3]+N3*dx[3];
-
-	th_cutout=0.0;//0.0174;
+	
+//	th_cutout=0.0;//0.0174;
+	th_cutout=0.0174;
 	th_beg=th_cutout;
 	
 	fprintf(stdout,"size: %d %d %d M  gam=%g game=%g gamp=%g t=%g M mks_smooth=%g\n",N1,N2,N3,gam,game,gamp,t,mks_smooth);
@@ -972,8 +954,6 @@ void init_harm3d_data(char *fname)
 	double dMact, Ladv, MBH;
 	double r,th;
 	FILE *fp;
-	//double BSQ,Trphi,dotJ;
-	//int dotJ_count;
 
 #if(SOURCE_SGRA)
     MBH = MSGRA;
@@ -1033,7 +1013,6 @@ void init_harm3d_data(char *fname)
 
 	//fprintf(stderr,"reconstructing 4-vectors...\n");
 	dMact = Ladv = 0.;
-	//dotJ=0.0;
 	
 	//reconstruction of variables at the zone center! here ghost zone in primitive read in from the file, they are zero anyway, i think
 	//in active zones
@@ -1044,12 +1023,9 @@ void init_harm3d_data(char *fname)
 	    gcov_func(X, gcov); // in system with cut off
 	    gcon_func(gcov, gcon);
 	    g = gdet_func(gcov);
-	    //bl_coord(X, &r, &th);
 	    for(k = 1; k < N3+1; k++){
 	      coord(i-1,j-1,k,X);
 	      
-
-
 	      //the four-vector reconstruction should have gcov and gcon and gdet using the modified coordinates
 	      //interpolating the four vectors to the zone center !!!!
 	      UdotU = 0.;
@@ -1059,7 +1035,6 @@ void init_harm3d_data(char *fname)
 	      for(l = 1; l < NDIM; l++) ucon[i][j][k][l] = p[U1+l-1][i][j][k] - ufac*gcon[0][l];
 	      lower(ucon[i][j][k], gcov, ucov[i][j][k]);
 
-	      
 	      //reconstruct the magnetic field three vectors
 	      udotB = 0.;
 	      for(l = 1; l < NDIM; l++) udotB += ucov[i][j][k][l]*p[B1+l-1][i][j][k];
@@ -1071,17 +1046,6 @@ void init_harm3d_data(char *fname)
 	      if(i <= 21) dMact += g * p[KRHO][i][j][k] * ucon[i][j][k][1] ;
 	      if(i >= 20 && i < 40 ) Ladv += g * p[UU][i][j][k] * ucon[i][j][k][1] * ucov[i][j][k][0] ;
 
-	      //compute dimentionless T^r_phi over phi and theta
-	      /*
-	      if ( i == (N1-2) ){
-		BSQ=bcon[i][j][k][0]*bcov[i][j][k][0]+
-		  bcon[i][j][k][1]*bcov[i][j][k][1]+
-		  bcon[i][j][k][2]*bcov[i][j][k][2]+
-		  bcon[i][j][k][3]*bcov[i][j][k][3];
-		Trphi =  (p[KRHO][i][j][k]+gam*p[UU][i][j][k]+BSQ)*ucon[i][j][k][1]*ucov[i][j][k][3]-bcon[i][j][k][1]*bcov[i][j][k][3] ;
-		dotJ += Trphi*g*dx[2]*dx[3];
-	      }
-	      */
 	      
 	    }
 	  }
@@ -1198,18 +1162,6 @@ void init_harm3d_data(char *fname)
 	Ladv *= dx[3]*dx[2] ;
 	Ladv /= 21. ;
 
-	/*
-	double Mstar=0.4*MSUN;
-	double Jorb= (Mstar*MBH)/(Mstar+MBH)*sqrt(GNEWT*(MBH+Mstar)*3.79*RSUN); //this is in cgs for sure
-	fprintf(stderr,"Jorb:%g [gcm2/s]\n",Jorb) ;
-	*/
-	/*
-	fprintf(stderr,"dotJ: %g [code]\n",dotJ) ;
-	double dotJ_unit=M_unit*pow(L_unit,2)/pow(T_unit,2); 
-	dotJ *= dotJ_unit; 
-	fprintf(stderr,"dotJ: %g [gcm2/s2] \n",dotJ);
-	exit(1);
-	*/
 
 	fprintf(stderr,"dMact: %g [code]\n",dMact) ;
 	fprintf(stderr,"Ladv: %g [code]\n",Ladv) ;

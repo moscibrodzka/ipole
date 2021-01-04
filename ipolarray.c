@@ -13,7 +13,6 @@
 #include "defs.h"
 
 /* the following definitions are used only locally */
-//#define MNLOOP  for(m=0;m<NDIM;m++)for(n=0;n<NDIM;n++)
 #define DLOOP  for(k=0;k<NDIM;k++)for(l=0;l<NDIM;l++)
 
 /* transfer coefficients in tetrad frame */
@@ -50,32 +49,12 @@ geodesics integration = it is zero */
 void init_N(double X[NDIM], double Kcon[NDIM],
 	    double complex N_coord[NDIM][NDIM])
 {
-  /*
-  double Ecov[NDIM][NDIM], Econ[NDIM][NDIM];
-  double SI,SQ,SU,SV;
-  double complex N_tetrad[NDIM][NDIM];
-  */
 
-  //  fprintf(stdout,"hi the other side, X[2]=%g \n",X[2]);
-  //emitter tetrad should be identical to receiver in this case, we are in equatorial plane, there is some symmetry
-  /* make_camera_tetrad(X,Econ,Ecov); */
-  /* //at far distance, pointing *towards* bh */
-  /* if( X[1] > log(1000.) && Kcon[1] < 0. ){ */
-  /*   SI=1.0; SQ=0.5; SU=0.0; SV=0.0;// here because I dump QU in IAU standards, so the sign changes in dump file */
-  /* }else{ */
-  /*   SI=0.0; SQ=0.0; SU=0.0; SV=0.0; */
-  /* } */
-  /* stokes_to_tensor(SI, SQ, SU, SV, N_tetrad); */
-  /* complex_tetrad_to_coord_rank2(N_tetrad, Econ, N_coord); */
-
-  //original part for the usual radiative transfer 
   for(int m=0;m<NDIM;m++)for(int n=0;n<NDIM;n++) N_coord[m][n] = 0.0 + I * 0.0;
   
   return;
 
 }
-
-//#undef MNLOOP
 
 /*
 
@@ -94,10 +73,12 @@ void push_polar(double Xi[NDIM], double Xm[NDIM], double Xf[NDIM],
     get_connection(Xm, lconn);
     int i, j, k, l;
 
+    
     /* push N */
     for (i = 0; i < 4; i++)
 	for (j = 0; j < 4; j++)
 	    Nf[i][j] = Ni[i][j];
+
 
     for (i = 0; i < 4; i++)
 	for (j = 0; j < 4; j++)
@@ -106,7 +87,7 @@ void push_polar(double Xi[NDIM], double Xm[NDIM], double Xf[NDIM],
 		  Nf[i][j] += -(lconn[i][k][l] * Nm[k][j] * Km[l] +
 				lconn[j][k][l] * Nm[i][k] * Km[l]
 				) * dl / (L_unit * HPL / (ME * CL * CL));
-    
+
     return;
 }
 
@@ -156,64 +137,33 @@ void evolve_N(double Xi[NDIM], double Kconi[NDIM],
 
 	/* evaluate transport coefficients */
 	gcov_func(Xf, gcov);
-
 	
-	if(THERMAL){
-	    jar_calc(Xf, Kconf, &jI, &jQ, &jU, &jV,
-		     &aI, &aQ, &aU, &aV, &rQ, &rU, &rV);
-	}
-
-	if(POWERL){
-	    jar_calc_mixed_pl(Xf, Kconf, &jI, &jQ, &jU, &jV,
-			      &aI, &aQ, &aU, &aV, &rQ, &rU, &rV);
-	}
-	if(KAPPAL){
-	    jar_calc_mixed_kappa(Xf, Kconf, &jI, &jQ, &jU, &jV,
-				 &aI, &aQ, &aU, &aV, &rQ, &rU, &rV);
-	}
-
+	if(THERMAL) jar_calc(Xf, Kconf, &jI, &jQ, &jU, &jV,&aI, &aQ, &aU, &aV, &rQ, &rU, &rV);	    
+	if(POWERL) jar_calc_mixed_pl(Xf, Kconf, &jI, &jQ, &jU, &jV, &aI, &aQ, &aU, &aV, &rQ, &rU, &rV);
+	if(KAPPAL) jar_calc_mixed_kappa(Xf, Kconf, &jI, &jQ, &jU, &jV, &aI, &aQ, &aU, &aV, &rQ, &rU, &rV);
+	
 	*tauF += dlam*fabs(rV);
-	
-        /*
-	jar_calc(Xi, Kconi, &jIi, &jQi, &jUi, &jVi,
-		 &aIi, &aQi, &aUi, &aVi, &rQi, &rUi, &rVi);
-
-	jar_calc(Xf, Kconf, &jIf, &jQf, &jUf, &jVf,
-		 &aIf, &aQf, &aUf, &aVf, &rQf, &rUf, &rVf);
-		
-	jI=(jIi+jIf)*0.5;
-	jQ=(jQi+jQf)*0.5;
-	jU=(jUi+jUf)*0.5;
-	jV=(jVi+jVf)*0.5;
-
-	aI=(aIi+aIf)*0.5;
-	aQ=(aQi+aQf)*0.5;
-	aU=(aUi+aUf)*0.5;
-	aV=(aVi+aVf)*0.5;
-
-	rQ=(rQi+rQf)*0.5;
-	rU=(rUi+rUf)*0.5;
-	rV=(rVi+rVf)*0.5;
-	*/
-
 	
 	/* make plasma tetrad */
 	get_model_ucon(Xf, Ucon);
 	B = get_model_b(Xf);	/* field in G */
+	
 	if (B > 0.) {
-	    get_model_bcon(Xf, Bcon);
-	}
-	else {
+	  get_model_bcon(Xf, Bcon);
+	} else {
 	    Bcon[0] = 0.;
 	    for (k = 1; k < NDIM; k++)
 		Bcon[k] = 1.;
 	}
+	
+	get_model_bcon(Xf, Bcon);
 	make_plasma_tetrad(Ucon, Kconf, Bcon, gcov, Econ, Ecov);
 
 	/* convert N to Stokes */
 	complex_coord_to_tetrad_rank2(N_coord, Ecov, N_tetrad);
 	tensor_to_stokes(N_tetrad, &SI0, &SQ0, &SU0, &SV0);
 
+	
 	if(INT_SPLIT){
 	    //the 3 steps scheme for stokes.
 
@@ -449,48 +399,6 @@ void evolve_N(double Xi[NDIM], double Kconi[NDIM],
 	    SV = P[3][0]*jI + P[3][1]*jQ + P[3][2]*jU + P[3][3]*jV + O[3][0]*SI0 + O[3][1]*SQ0 + O[3][2]*SU0 + O[3][3]*SV0;
 	}
 
-	
-	/*
-	if(isnan(SI)){
-	   fprintf(stdout,"pos: x1=%g x2=%g x3=%g \n",Xf[1],Xf[2],Xf[3]);
-	   double ne=get_model_ne(Xf);
-	   double Thetae=get_model_thetae(Xf);
-	   double Ucov[NDIM];
-	   get_model_ucov(Xf,Ucov);
-	   double nu = get_fluid_nu(Kconf, Ucov);
-
-	   fprintf(stdout,"ne B thetae nu: %g %g %g %g\n",ne,B,Thetae,nu);
-	   fprintf(stdout,"j: %g %g %g %g\n",jI,jQ,jU,jV);
-	   fprintf(stdout,"a: %g %g %g %g\n",aI,aQ,aU,aV);
-	   fprintf(stdout,"r:    %g %g %g\n",rQ,rU,rV);
-
-	   fprintf(stdout,"alpha2=%g rho2=%g T=%g L1=%g L2=%g\n",alpha2,rho2,T,L1,L2);
-	   fprintf(stdout,"fac1=%g fac2=%g \n",fac1,fac2);
-	   fprintf(stdout,"EaIdlam=%g \n",EaIdlam);
-
-	   fprintf(stdout,"l1dlam=%g \n",l1dlam);
-	   fprintf(stdout,"l2dlam=%g \n",l2dlam);
-	    
-	   fprintf(stdout,"coshl1dlam=%g \n",coshl1dlam);
-	   fprintf(stdout,"sinhl1dlam=%g \n",sinhl1dlam);
-	   fprintf(stdout,"cosl2dlam=%g \n",cosl2dlam);
-	   fprintf(stdout,"sinl2dlam=%g \n",sinl2dlam);
-	   fprintf(stdout,"coshl1dlam=%g \n",coshl1dlam+cosl2dlam);
-	   fprintf(stdout,"coshl1dlam=%g \n",coshl1dlam-cosl2dlam);
-	   
-	   fprintf(stdout,"t,r,th,phi: %g %g %g %g\n",Xf[0],exp(Xf[1]),Xf[2]*M_PI,Xf[3]);
-	   
-            DLOOP fprintf(stdout,"N_coord_before  [%d][%d]=%g + i %g\n",k,l,creal(N_coord[k][l]),cimag(N_coord[k][l]));
-            DLOOP fprintf(stdout,"N_tetrad_before [%d][%d]=%g + i %g\n",k,l,creal(N_tetrad[k][l]),cimag(N_tetrad[k][l]));
-            DLOOP fprintf(stdout,"O[%d][%d]=%g  M1=%g M2=%g M3=%g M4=%g\n",k,l,O[k][l],M1[k][l],M2[k][l],M3[k][l],M4[k][l]);
-	    DLOOP fprintf(stdout,"P[%d][%d]=%g\n",k,l,P[k][l]);
-	    fprintf(stdout,"S0: %g %g %g %g \n",SI0,SQ0,SU0,SV0);
-            fprintf(stdout,"S1: %g %g %g %g \n",SI ,SQ ,SU ,SV );
-            exit(1);
-	    
-            }
-	*/
-	    
 	/* re-pack the Stokes parameters into N */
 	stokes_to_tensor(SI, SQ, SU, SV, N_tetrad);
 	complex_tetrad_to_coord_rank2(N_tetrad, Econ, N_coord);
@@ -510,23 +418,13 @@ void project_N(double X[NDIM], double Kcon[NDIM],
 {
     double complex N_tetrad[NDIM][NDIM];
     double Econ[NDIM][NDIM], Ecov[NDIM][NDIM];
-    //double Q,U;
+    
     
     make_camera_tetrad(X, Econ, Ecov);
 
     complex_coord_to_tetrad_rank2(N_coord, Ecov, N_tetrad);
 
     tensor_to_stokes(N_tetrad, Stokes_I, Stokes_Q, Stokes_U, Stokes_V);
-
-    /* a rotated camera */
-    /*
-      tensor_to_stokes(N_tetrad, Stokes_I, &Q, &U, Stokes_V);
-      double rotcam=M_PI/2.;
-      rotcam *= -2.;
-      *Stokes_Q = Q*cos(rotcam) - U*sin(rotcam);
-      *Stokes_U = Q*sin(rotcam) + U*cos(rotcam);
-    */
-
     
     return;
 

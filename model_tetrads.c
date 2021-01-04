@@ -111,28 +111,6 @@ void make_plasma_tetrad(double Ucon[NDIM], double Kcon[NDIM],
 	Ecov[0][l] *= -1.;
     }
 
-    /* paranoia: check orthonormality */
-    /*
-       double sum ;
-       int m ;
-       fprintf(stderr,"ortho check [plasma]:\n") ;
-       for(k=0;k<NDIM;k++)
-       for(l=0;l<NDIM;l++) {
-       sum = 0. ;
-       for(m=0;m<NDIM;m++) {
-       sum += Econ[k][m]*Ecov[l][m] ;
-       }
-       fprintf(stderr,"sum: %d %d %g\n",k,l,sum) ;
-       }
-       fprintf(stderr,"\n") ;
-       for(k=0;k<NDIM;k++)
-       for(l=0;l<NDIM;l++) {
-       fprintf(stderr,"%d %d %g\n",k,l,Econ[k][l]) ;
-       }
-       fprintf(stderr,"done ortho check.\n") ;
-       fprintf(stderr,"\n") ;
-     */
-
     /* done! */
 
 }

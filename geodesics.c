@@ -31,9 +31,12 @@ void push_photon(double X[NDIM], double Kcon[NDIM], double dl,double Xhalf[NDIM]
 				dKcon[k] -=
 				    0.5 * dl * lconn[k][i][j] * Kcon[i] *
 				    Kcon[j];
+	
+	
 	for (k = 0; k < 4; k++)
-		Kconh[k] = Kcon[k] + dKcon[k];
+	  Kconh[k] = Kcon[k] + dKcon[k];
 
+	
 	/* advance X */
 	for (i = 0; i < 4; i++)
 		Xh[i] = X[i] + 0.5 * dl * Kcon[i] ;
@@ -54,7 +57,8 @@ void push_photon(double X[NDIM], double Kcon[NDIM], double dl,double Xhalf[NDIM]
 			for (k = 0; k < 4; k++)
 				dKcon[k] -=
 				    dl * lconn[k][i][j] * Kconh[i] *
-				    Kconh[j];
+				  Kconh[j];
+	
 	for (k = 0; k < 4; k++)
 		Kcon[k] += dKcon[k];
 
@@ -73,5 +77,6 @@ void push_photon(double X[NDIM], double Kcon[NDIM], double dl,double Xhalf[NDIM]
 	*/
 	/* done! */
 }
+
 
 

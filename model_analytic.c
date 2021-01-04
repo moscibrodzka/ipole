@@ -1,9 +1,15 @@
 #include "decs.h"
 
-/*                                                                                                                                                                    first geometry used in the model and then HARM model specification routines 
-*/
+/* first geometry used in the model and then HARM model specification routines */
 
-/*                                                                                                                                                                          model-dependent geometry routines:                                                                                                                                          risco_calc                                                                                                                                                          rhorizon_calc                                                                                                                                                       gcov                                                                                                                                                                get_connection                                                                                                                                      
+/*                  model-dependent
+																				
+	    geometry
+	    routines:
+	    risco_calc
+	    rhorizon_calc
+	    gcov
+	    get_connection           
 */
 
 //chose field geometry in the model
@@ -32,7 +38,6 @@ double rhorizon_calc(int pos_sign)
 }
 
 //function from IL group, coefficents needed to set up metric corrections for modified coodtinates 
-//this seems correct
 #define MUNULOOP for(int mu=0;mu<NDIM;mu++) for(int nu=0;nu<NDIM;nu++)
 void set_dxdX(double X[NDIM], double dxdX[NDIM][NDIM])
 {
@@ -80,16 +85,6 @@ void gcov_func(double *X, double gcov[][NDIM])
   gcov_ks[3][0] = gcov_ks[0][3];
   gcov_ks[3][1] = gcov_ks[1][3];
   gcov_ks[3][3] = s2 * (rho2 + a * a * s2 * (1. + 2. * r / rho2));
-
- 
-  //optional plain spherical polar
-  /*
-  gcov_ks[0][0] = -1. ;
-  gcov_ks[1][1] = 1. ;
-  gcov_ks[2][2] = rho2 ;
-  gcov_ks[3][3] = s2 * (rho2);
-  */
-  
   
   // convert from ks metric to a modified one using Jacobian
   double dxdX[NDIM][NDIM];
@@ -130,11 +125,6 @@ void gcov_func(double *X, double gcov[][NDIM])
 void get_connection(double X[NDIM], double lconn[NDIM][NDIM][NDIM])
 {
 
-   //if spherical polar
-   //numerical connections
-   //get_connection_num(X,lconn);
-   //return;
-  
     double r1,r2,r3,r4,sx,cx;
     double th,dthdx2,dthdx22,d2thdx22,sth,cth,sth2,cth2,sth4,cth4,s2th,c2th;
     double a2,a3,a4,rho2,irho2,rho22,irho22,rho23,irho23,irho23_dthdx2;
@@ -148,10 +138,6 @@ void get_connection(double X[NDIM], double lconn[NDIM][NDIM][NDIM])
     sx = sin(2.*M_PI*X[2]);
     cx = cos(2.*M_PI*X[2]);
   
-    /* HARM-2D MKS */
-    //th = M_PI*X[2] + 0.5*(1-hslope)*sx;
-    //dthdx2 = M_PI*(1.+(1-hslope)*cx);
-    //d2thdx22 = -2.*M_PI*M_PI*(1-hslope)*sx;
   
     /* HARM-3D MKS */
     th =  M_PI*X[2] + hslope*sx;
@@ -274,22 +260,16 @@ void get_connection(double X[NDIM], double lconn[NDIM][NDIM][NDIM])
 	
 }
 
-
-
-
-
 void init_model(char *args[])
 {
 	set_units(args[4]);
-	a = 0.998;
+	a = 0.0;
 	Risco = risco_calc(1);
 	Rh = rhorizon_calc(1);
 	fprintf(stdout,"Risco=%g \n",Risco);
 	Rout=100.;
 	hslope=0.0;
 	th_beg=0.0;
-
-	
 }
 
 /* 
@@ -314,7 +294,6 @@ void get_model_ucon(double X[NDIM], double Ucon[NDIM])
 
   //Keplerian velocity down to ISCO
   if(r>Risco){
-  //if(0){
     sth2=sin(th)*sin(th);
     cth2=cos(th)*cos(th);
     rho2=r*r+a*a*cth2;
@@ -349,8 +328,7 @@ void get_model_ucon(double X[NDIM], double Ucon[NDIM])
     /* transform KS -> KS' coords, Ucon has to be in the same coord as K^mu */
     Ucon[1] /= r;
     Ucon[2] /= M_PI;
-
-
+    
     if( isnan(Ucon[0]) ){
       fprintf(stdout,"here r=%g AA=%g omega=%g %g %g %g  %g\n",r,AA,omega,
 	      g_tt,g_tp,g_pp,m1oA2);
@@ -435,7 +413,7 @@ void get_model_bcon(double X[NDIM], double Bcon[NDIM])
 	     - F21
 	     - F22
 	     )/(2.*dx1*g) ;
-  
+
     B_3 = 0.0 ;
   }
 
@@ -466,10 +444,9 @@ void get_model_bcon(double X[NDIM], double Bcon[NDIM])
 	     - F22
 	     )/(2.*dx1*g) ;
   
-    B_3 = 0.0 ;
+    B_3 = 0.0;
   }
   
-  // this is checked, OK
   Bcon[0] = B_1 * Ucov[1] + B_2 * Ucov[2] + B_3 * Ucov[3] ;
   Bcon[1] = ( B_1 + Bcon[0] * Ucon[1]) / Ucon[0];
   Bcon[2] = ( B_2 + Bcon[0] * Ucon[2]) / Ucon[0];
@@ -492,103 +469,37 @@ double get_model_thetae(double X[NDIM])
   
   double r, th;
   bl_coord(X, &r, &th);
-  double thetae0=80.;
+  double thetae0=200.;
   return thetae0*pow(r,-0.84);
 
 }
 
 double get_model_b(double X[NDIM])
 {
-
   double r, th;
-  double beta,ne;
   bl_coord(X, &r, &th);
-  beta=0.1;
-  ne=get_model_ne(X);
-  return sqrt(8.*M_PI/beta*ne*MPCL2*2./12./r);
-
+  return 100.*pow(r,-1);
 }
 
 double get_model_ne(double X[NDIM])
 {
 
-  int j,k;
+  
   double r, th;
   double ne_bg,mu2;
-
-  double omega,l,r2,r32,r12,rho2,cth2,sth2,u_t;
-  double g_tt,g_tp,g_pp;
-  double gcov[NDIM][NDIM];
-  double Ucon[NDIM],Ucon_bl[NDIM];
-  double m1oA2,AA;
-  double trans[NDIM][NDIM], tmp[NDIM];
-
-  double ne_spot,Rspot,P;
-  double xspot[NDIM];//curent position of a spot center in KS'
-  double th_spot,r_spot,xx;
-  double xc,yc,zc;
-  double xs,ys,zs;
-
-  ne_spot=0.0;
-
-  /*hot spot parameters*/
   
-  /* // period of a spot = 2pi(rspot^1.5+a) [M] */
-  /* r_spot=6.; */
-  /* th_spot=0.5*M_PI; */
-  /* //  get_model_ucon(X,Ucon); */
-  /* r32=pow(r_spot,1.5); */
-  /* omega=1./(r32+a); */
-  /* P=2.*M_PI/omega; //orbital period of the spot [M]  */
-
-  /* //spot currrent position, fixed as the light propagates */
-  /* xspot[0]=X[0];        //current coordinate time, where is the spot at this time? */
-  /* xspot[1]=log(r_spot); //log scale  */
-  /* xspot[2]=0.5;         //equator 0.5*pi */
-  /* xspot[3]=fmod(X[0]/P,1.)*2.*M_PI; //fraction of a full period *2*pi, spot current phi at time t=X[0] */
-
-  /* int n,nmax; */
-  /* double spot_n_den; */
-  /* nmax=0; //nmax spots del phi=2*pi/nmax */
-  /* for(n=0;n<nmax;n++){ */
-  /*   xspot[3] += 2*M_PI/nmax*n; */
-    
-  /*   /\*pseudo-Cartesian coordinates*\/ */
-  /*   xc=sqrt(exp(X[1])*exp(X[1])+a*a)*cos(X[3]); */
-  /*   yc=sqrt(exp(X[1])*exp(X[1])+a*a)*sin(X[3]); */
-  /*   zc=exp(X[1])*cos(X[2]*M_PI); */
-    
-  /*   xs=sqrt(exp(xspot[1])*exp(xspot[1])+a*a)*cos(xspot[3]); */
-  /*   ys=sqrt(exp(xspot[1])*exp(xspot[1])+a*a)*sin(xspot[3]); */
-  /*   zs=exp(xspot[1])*cos(xspot[2]*M_PI); */
-    
-  /*   //spatial distance^2 between photon position and spot center                                                                        */
-  /*   xx=fabs(pow(xc-xs,2)+pow(yc-ys,2)+pow(zc-zs,2)); */
-  /*   //spatial distance^2 between photon position and ring at the equatorial plane */
-  /*   Rspot=0.75*2.; //spot size  */
-  /*   //ne_spot *= exp(-(xx)/2./Rspot/Rspot); */
-    
-  /*   spot_n_den=2.e6*exp(-(xx)/2./Rspot/Rspot); */
-  /*   if(spot_n_den < 1e5) spot_n_den=0.0; */
-    
-  /*   ne_spot += spot_n_den; */
-  /* } */
-
-  //curent photon position and background  
-
   bl_coord(X, &r, &th);
   mu2=cos(th)*cos(th);
+  //paramters
   double sigma2=0.3*0.3;
-  ne_bg=8e4;
-  //thick flow, spherically symetric here, how can it all rotatiate
+  ne_bg=7e3;
+
   if(r>Risco){
-    return ne_bg*pow(r,-1.5)*exp(-mu2/2/sigma2) ;//+ ne_spot;
+    return ne_bg*pow(r,-1.5)*exp(-mu2/2./sigma2) ;
   }else{
-    return 0.0;
+    return 1e-3;
   }
   
-  // no background
-  //return ne_spot;
 
 }
 
