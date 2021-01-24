@@ -205,6 +205,7 @@ void   make_plasma_tetrad(double Ucon[NDIM], double Kcon[NDIM], double Bcon[NDIM
 
 /* imaging */
 void make_ppm(double p[NX][NY], double freq, char filename[]) ;
+void afmhot_palette(double data, double min, double max, int *pRed, int *pGreen, int *pBlue) ;
 void rainbow_palette(double data, double min, double max, int *pRed, int *pGreen, int *pBlue) ;
 void monika_palette(double data, double min, double max, int *pRed, int *pGreen, int *pBlue) ;
 
