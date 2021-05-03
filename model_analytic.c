@@ -340,7 +340,7 @@ void get_model_ucon(double X[NDIM], double Ucon[NDIM])
     gcov_func(X, gcov);
     gcon_func(gcov, gcon) ;
 
-    Ucov[0] = -1./sqrt(-gcov[0][0]) ;
+    Ucov[0] = -1./sqrt(-gcon[0][0]) ;
     Ucov[1] = 0. ;
     Ucov[2] = 0. ;
     Ucov[3] = 0. ;
