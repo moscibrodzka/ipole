@@ -317,14 +317,15 @@ void get_model_ucon(double X[NDIM], double Ucon[NDIM])
 	   X[2] < startx[2] || 
 	   X[2] > stopx[2]) {
 	   	/* sensible default value */
-	   	gcov_func(X, gcov) ;
+	   	/* gcov_func(X, gcov) ;*/
+	   	gcon_func(X, gcon) ;
 
-		tmp[0] = -1./sqrt(-gcov[0][0]) ;
+		tmp[0] = -1./sqrt(-gcon[0][0]) ;
 		tmp[1] = 0. ;
 		tmp[2] = 0. ;
 		tmp[3] = 0. ;
 
-	   	gcon_func(gcov, gcon) ;
+	   	/*gcon_func(gcov, gcon) ;*/
 		Ucon[0] = 
 			tmp[0]*gcon[0][0] +
 			tmp[1]*gcon[0][1] +
