@@ -399,7 +399,7 @@ void jar_calc_mixed_pl(double X[NDIM], double Kcon[NDIM],
       emcon=Ne_pl*EE*EE/nu/ME/CL;
        
       a_pl=emcon*pow(3,(p+1)/2.)*(p-1)/4./(pow(gmin,1-p)-pow(gmax,1-p))*
-	gsl_sf_gamma((3*p+12)/12)*gsl_sf_gamma((3*p+22)/12)*
+	gsl_sf_gamma((3*p+2)/12)*gsl_sf_gamma((3*p+22)/12)*
 	pow(nu/nuc/sin(theta),-(p+2)/2);
       a_pl_I=a_pl;
       a_pl_Q=a_pl*0.75*pow(p-1,43/500);
