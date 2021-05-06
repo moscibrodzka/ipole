@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
     Xcam[1] = log(rcam);
     double x[NDIM] = {0., rcam, thetacam/180.*M_PI, phicam/180.*M_PI};
     Xcam[2] = root_find2(x);
-    Xcam[3] = phicam;
+    Xcam[3] = phicam/180.*M_PI;
     fprintf(stdout,"camera coordinates: %g %g %g %g \n",Xcam[0],Xcam[1],Xcam[2],Xcam[3]);
     double r,th;
     bl_coord(Xcam,&r,&th);
